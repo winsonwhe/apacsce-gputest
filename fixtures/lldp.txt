@@ -1,0 +1,2 @@
+lldp.eth0.chassis.name=switch1
+lldp.eth0.port.ifname=Ethernet1

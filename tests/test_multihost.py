@@ -37,6 +37,16 @@ def test_perftest_average_not_peak_or_median():
         assert parsers.parse_perftest('tool failed', kind)['value'] is None
 
 
+def test_rdma_read_send_and_gdr_commands(tmp_path, capsys):
+    ctx = context(tmp_path, dry_run=True)
+    results = run_checks(['rdma_read', 'rdma_send', 'gdr_perf'], ctx)
+    assert all(result.status == 'SKIP' for result in results)
+    output = capsys.readouterr().out
+    assert '/usr/bin/ib_read_bw' in output
+    assert '/usr/bin/ib_send_bw' in output
+    assert '--use_cuda' in output
+
+
 def test_remote_quoting_environment_cwd_and_timeout(monkeypatch, tmp_path):
     captured = {}
 

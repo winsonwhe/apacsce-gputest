@@ -45,3 +45,14 @@ hardware captures. The topology samples contain only the matrix header needed
 for presence parsing; actual hardware matrices still need verification.
 `numactl_gb300.txt` and `numactl_b300.txt` reuse the two-CPU-node A10 sample to
 exercise filtering and do not assert Grace memory/core counts.
+
+The `ethtool.txt`, `lldp.txt`, `ping.txt`, `iperf3.json`, `fio.json`,
+`oci_object.txt`, `object_size.txt`, and `empty.txt` fixtures are illustrative
+CPU-only examples, not captures from OCI hardware. Validate their formats against
+the deployed tool versions before relying on these optional checks.
+The `lustre_mount.txt`, `lustre_capacity.txt`, and `lustre_stripe.txt` files are
+also illustrative examples, not captures from a Lustre deployment.
+
+The `oca_os_release.txt`, `oca_rpm.txt`, `oca_dpkg.txt`, and `oca_snap.txt`
+fixtures are illustrative package-manager samples, not captures from OCI images.
+Actual OCA package names and output must be validated on supported target images.

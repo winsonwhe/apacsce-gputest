@@ -1,16 +1,18 @@
 profiles:
   quick: &quick [network_mode, nvidia_smi, kernel_xid, ecc_remap, pcie_link, nvlink,
-                  clocks_throttle, software_versions, gpu_topology, fabricmanager,
-                  numa_topology, rdma_iface, gpudirect_rdma, gpu_burn]
+                  clocks_throttle, software_versions, oca_version, gpu_topology, fabricmanager,
+                  numa_topology, numa_affinity, rdma_iface, gpudirect_rdma, gpu_burn]
   standard: &standard [network_mode, nvidia_smi, kernel_xid, ecc_remap, pcie_link, nvlink,
-                       clocks_throttle, software_versions, gpu_topology, fabricmanager,
-                       numa_topology, rdma_iface, gpudirect_rdma, ssh_connectivity, gpu_burn,
-                       nvbandwidth, babelstream, dcgmi, rdma_perf]
+                       clocks_throttle, software_versions, oca_version, gpu_topology, fabricmanager,
+                       numa_topology, numa_affinity, rdma_iface, gpudirect_rdma, ssh_connectivity, gpu_burn,
+                       nvbandwidth, babelstream, dcgmi, rdma_perf, rdma_read, rdma_send, gdr_perf]
   full: &full [network_mode, nvidia_smi, kernel_xid, ecc_remap, pcie_link, nvlink,
-               clocks_throttle, software_versions, gpu_topology, fabricmanager, numa_topology,
-               rdma_iface, gpudirect_rdma, ssh_connectivity, placement, imex, gpu_burn, nvbandwidth,
-               babelstream, dcgmi, rdma_perf, nccl_local_allreduce, nccl_allreduce, nccl_alltoall,
-               storage]
+               clocks_throttle, software_versions, oca_version, gpu_topology, fabricmanager, numa_topology,
+               numa_affinity, rdma_iface, gpudirect_rdma, ssh_connectivity, placement, imex, gpu_burn, nvbandwidth,
+               babelstream, dcgmi, rdma_perf, rdma_read, rdma_send, gdr_perf,
+               nccl_local_allreduce, nccl_allreduce, nccl_alltoall,
+               storage, nic_inventory, network_ping, tcp_bandwidth, lustre_client,
+               filesystem_perf, object_storage, object_upload]
   a10_quick: *quick
   a10_standard: *standard
   a10_full: *full
@@ -73,6 +75,7 @@ skus:
     cuda_min: "13"
     fabricmanager_required: true
     imex_capable: true
+    nvlink: true
     arch: aarch64
   b300:
     memory_tolerance_mib: 512
@@ -198,6 +201,9 @@ rdma_perf:
   ready_interval_s: 0.2
   bw_args: [-F, -q, '2', --report_gbits, -s, '8388608', -D, '5']
   lat_args: [-F, -s, '8', -n, '10000']
+  read_args: [-F, -q, '2', --report_gbits, -s, '8388608', -D, '5']
+  send_args: [-F, -q, '2', --report_gbits, -s, '8388608', -D, '5']
+  gdr_args: [-F, -q, '2', --report_gbits, -s, '8388608', -D, '5', --use_cuda]
   single_plane:
     ip_family: auto  # auto | inet | inet6; no implicit VRF
     extra_args: []   # TODO(verify): GID/traffic class against target OCI deployment
@@ -392,6 +398,77 @@ nvbandwidth:
         # TODO(verify): inherited floor applies to SUM, not individual links.
         device_to_device_bidirectional_memcpy_read_ce: 750
 
+oca_version:
+  enabled: true
+  os_release_path: /etc/os-release
+  timeout_s: 30
+  min_version: null  # Optional quoted numeric version, e.g. '1.50.0'; no assumed OCI minimum.
+
+# All optional checks below are disabled until explicitly configured.
+nic_inventory:
+  enabled: false
+  timeout_s: 30
+  # Example: {name: eth0, min_speed_mbps: 200000, peer_chassis: switch1, peer_port: Ethernet1}
+  # LLDP peer fields are optional and require lldpd on the host and switch.
+  interfaces: []
+
+network_ping:
+  enabled: false
+  count: 5
+  wait_s: 2
+  max_loss_pct: 0
+  timeout_s: 30
+  sample_count: 0  # 0 runs all paths; otherwise reproducibly sample per source host.
+  seed: 42
+  # node must match --nodes; omit for local execution. source is an IP or interface.
+  # Example: {node: n1, source: '2001:db8::1', target: '2001:db8::2', family: ipv6, vrf: vrf_r0}
+  paths: []
+
+tcp_bandwidth:
+  enabled: false
+  duration_s: 30
+  parallel_streams: 4
+  timeout_s: 90
+  # Start an iperf3 server separately on the target and permit the configured port.
+  # Example: {node: n1, source: '10.0.0.1', target: '10.0.0.2', port: 5201, min_gbps: 180, reverse: false}
+  # Optional vrf selects the source VRF. Omit node for local execution.
+  paths: []
+
+lustre_client:
+  enabled: false
+  path: null  # Existing Lustre mount or directory on every selected host.
+  timeout_s: 60
+
+filesystem_perf:
+  enabled: false
+  timeout_s: 1800
+  # Reads require an existing file. Writes create a uniquely named temporary file
+  # in directory and ask fio to unlink it. Use a dedicated test directory.
+  # Examples:
+  # - {rw: read, file: /mnt/nvme/testfile, block_size: 1M, iodepth: 1, min_mib_s: 1000}
+  # - {rw: write, directory: /mnt/lustre/test, size: 10G, block_size: 1M, iodepth: 1, min_mib_s: 1000}
+  jobs: []
+
+object_storage:
+  enabled: false
+  bucket: null
+  object: null  # Existing object; this check downloads only.
+  namespace: null
+  scratch_dir: null  # Dedicated local directory with space for the full object.
+  extra_args: []  # OCI CLI authentication, region, or profile options.
+  min_mib_s: null
+  timeout_s: 1800
+
+object_upload:
+  enabled: false
+  bucket: null
+  source_file: null  # Existing local file, readable on each selected host.
+  prefix: null  # Dedicated object prefix; new unique object is deleted after upload.
+  namespace: null
+  extra_args: []
+  min_mib_s: null
+  timeout_s: 1800
+
 storage:
   enabled: false
   # Set to a mounted Lustre/XFS test directory on hosts where storage validation
@@ -408,6 +485,8 @@ tools:
   cmake: cmake
   ib_write_bw: /usr/bin/ib_write_bw
   ib_write_lat: /usr/bin/ib_write_lat
+  ib_read_bw: /usr/bin/ib_read_bw
+  ib_send_bw: /usr/bin/ib_send_bw
   nvidia_smi: nvidia-smi
   gpu-burn: ./tools/gpu-burn/gpu_burn
   babelstream: ./tools/BabelStream/build/cuda-stream
@@ -440,6 +519,17 @@ tools:
   xfs_info: xfs_info
   lfs: lfs
   fio: fio
+  ethtool: ethtool
+  lldpcli: lldpcli
+  ping: ping
+  iperf3: iperf3
+  oci: oci
+  wc: wc
+  rm: rm
+  findmnt: findmnt
+  rpm: rpm
+  dpkg_query: dpkg-query
+  snap: snap
 
 # Hints follow the supplied manual excerpts; the original PDF is absent.
 # TODO(verify): reconcile these with the deployment's PDF and actual diagnostics.
@@ -467,6 +557,10 @@ troubleshooting:
     - 'Recheck placement and traffic before changing example limits or replacing a known-good baseline.'
   rdma_bw: *perf_hints
   rdma_lat: *perf_hints
+  rdma_read: *perf_hints
+  rdma_send: *perf_hints
+  gdr_perf:
+    - 'Check nvidia-peermem, CUDA-enabled perftest support and GPU memory selection; compare device-memory bandwidth with host-memory RDMA.'
   ssh_connectivity:
     - 'Verify BatchMode SSH, trusted known_hosts and keys from the controller and launcher host to every peer.'
   gpu_burn:

@@ -139,7 +139,7 @@ def _address(ctx, node, device, family):
     raise ValueError(f'{node}: no routable {family} address on {device["netdev"]}')
 
 
-def _rdma(ctx, name, kinds):
+def _rdma(ctx, name, kinds, *, tool_prefix='ib_write', args_key=None, tool_key=None):
     nodes = ctx.nodes[:2]
     iface = rdma_iface(replace(ctx, nodes=nodes))
     devices = {n: iface.metrics['devices'][n] for n in nodes}
@@ -166,8 +166,9 @@ def _rdma(ctx, name, kinds):
             extra = list(mode['extra_args'])
             if ctx.network_mode == 'single_plane' and actual_family == 'inet6':
                 extra += ['--ipv6', '--ipv6-addr']
-            args = cfg[f'{kind}_args'] + extra + ['-p', str(port)]
-            tool = ctx.config['tools'][f'ib_write_{kind}']
+            key = args_key or kind
+            args = cfg[f'{key}_args'] + extra + ['-p', str(port)]
+            tool = ctx.config['tools'][f'{tool_prefix}_{tool_key or key}']
             jobs = [{'cmd': prefix + [tool] + args + ['-d', d['hca']] + peer,
                          'node': node, 'timeout': cfg['timeout_s'], 'mock_fixture': f'ib_write_{kind}.txt'}
                     for node, d, peer in ((server, sd, []), (client, cd, [address]))]
@@ -215,6 +216,24 @@ def rdma_bw(ctx: RunContext) -> Result:
 @check('rdma_lat', category='rdma', requires_multi_host=True)
 def rdma_lat(ctx: RunContext) -> Result:
     return _rdma(ctx, 'rdma_lat', ['lat'])
+
+
+@check('rdma_read', category='rdma', requires_multi_host=True)
+def rdma_read(ctx: RunContext) -> Result:
+    """Measure per-rail IB RDMA read bandwidth."""
+    return _rdma(ctx, 'rdma_read', ['bw'], tool_prefix='ib_read', args_key='read', tool_key='bw')
+
+
+@check('rdma_send', category='rdma', requires_multi_host=True)
+def rdma_send(ctx: RunContext) -> Result:
+    """Measure per-rail IB send bandwidth."""
+    return _rdma(ctx, 'rdma_send', ['bw'], tool_prefix='ib_send', args_key='send', tool_key='bw')
+
+
+@check('gdr_perf', category='rdma', requires_multi_host=True)
+def gdr_perf(ctx: RunContext) -> Result:
+    """Measure RDMA bandwidth using CUDA device memory (GPUDirect RDMA)."""
+    return _rdma(ctx, 'gdr_perf', ['bw'], args_key='gdr', tool_key='bw')
 
 
 def _nccl(ctx, collective):

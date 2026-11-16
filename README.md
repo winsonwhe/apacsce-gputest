@@ -39,7 +39,7 @@ their documentation or upstream projects:
 | [DCGM](https://docs.nvidia.com/datacenter/dcgm/latest/) | Runs NVIDIA GPU diagnostics and health checks. | [DCGM documentation](https://docs.nvidia.com/datacenter/dcgm/latest/) |
 | [numactl](https://github.com/numactl/numactl) | Selects NUMA nodes and reports CPU/memory topology for locality checks. | [numactl project](https://github.com/numactl/numactl) |
 | [iproute2](https://www.kernel.org/pub/linux/utils/net/iproute2/) | Provides `ip`, `rdma` and `ss` for interface, VRF and RDMA checks. | [iproute2 releases](https://www.kernel.org/pub/linux/utils/net/iproute2/) |
-| [perftest](https://github.com/linux-rdma/perftest) | Provides `ib_write_bw` and `ib_write_lat` for RDMA bandwidth and latency checks. | [perftest project](https://github.com/linux-rdma/perftest) |
+| [perftest](https://github.com/linux-rdma/perftest) | Provides `ib_write_bw`, `ib_read_bw`, `ib_send_bw` and `ib_write_lat` for RDMA checks. | [perftest project](https://github.com/linux-rdma/perftest) |
 | [Open MPI](https://www.open-mpi.org/), [UCX](https://openucx.readthedocs.io/) | Launches and transports multi-host NCCL jobs. | [Open MPI](https://www.open-mpi.org/), [UCX documentation](https://openucx.readthedocs.io/) |
 | [nccl-tests](https://github.com/NVIDIA/nccl-tests) | Provides `all_reduce_perf` and `alltoall_perf` for NCCL validation. | [nccl-tests project](https://github.com/NVIDIA/nccl-tests) |
 | [GNU coreutils `timeout`](https://www.gnu.org/software/coreutils/manual/html_node/timeout-invocation.html) | Bounds every external command so failed or hung workloads finish predictably. | [timeout manual](https://www.gnu.org/software/coreutils/manual/html_node/timeout-invocation.html) |
@@ -86,6 +86,110 @@ it does not establish a full peer mesh. Verify site SSH policy and keys using
 timeout, raw log and mock/dry-run support. Remote commands receive a second GNU
 timeout on the target, so SSH disconnection leaves a bounded workload.
 
+## Test catalog
+
+All means the configured SKUs: A10, A100, H100, H200, L40S, B200, GB200,
+B300 and GB300. The commands below show the main underlying commands; paths,
+arguments and thresholds come from `config.yaml`, and discovery or telemetry can
+run additional commands. A configured SKU is not a guarantee that its tools,
+hardware capabilities or calibrated thresholds are available.
+
+Run an individual check with `python3 -m gputest.cli run --sku <sku> --tests
+<check>`; add `--nodes n1,n2` for checks marked multi-host and `--dry-run` to
+preview commands. Use `python3 -m gputest.cli list` for the current registry.
+
+The tables group checks by purpose and roughly progress from inventory and
+health checks to performance and multi-host workloads within each group. This
+is a reading guide; profiles and explicit `--tests` order determine execution.
+The Category column retains the CLI registry category.
+
+### System Validation
+
+| Category | Check | Test content | Main command(s) | Target SKUs / conditions |
+|---|---|---|---|---|
+| preflight | `software_versions` | Driver, firmware and installed software versions | `nvidia-smi --query-gpu=driver_version,vbios_version --format=csv,noheader`; `nvcc --version`; `ofed_info -s`; `dcgmi --version`; `ibv_devinfo --version`; `nvidia-fabricmanager --version` | All |
+| preflight | `oca_version` | Oracle Cloud Agent package version on each host; optional minimum version | `cat /etc/os-release`; `rpm -q`, `dpkg-query`, and `snap list` for `oracle-cloud-agent` | All; Linux package installations; missing or uncomparable versions WARN |
+| preflight | `numa_topology` | CPU and memory NUMA topology | `numactl --hardware` | All |
+| preflight | `ssh_connectivity` | SSH access and launcher-to-peer connectivity | `hostname` over SSH; `ssh -o BatchMode=yes -o ConnectTimeout=10 -- <peer> hostname` from launcher | All; multi-host |
+
+### GPU Validation
+
+| Category | Check | Test content | Main command(s) | Target SKUs / conditions |
+|---|---|---|---|---|
+| preflight | `nvidia_smi` | GPU inventory, driver, memory and ECC mode | `nvidia-smi --query-gpu=index,name,driver_version,memory.total,ecc.mode.current --format=csv,noheader,nounits`; `nvidia-smi --query-gpu=compute_cap --format=csv,noheader` | All |
+| preflight | `gpu_topology` | GPU and NIC topology inventory | `nvidia-smi topo -m` | All |
+| preflight | `numa_affinity` | GPU CPU/NUMA affinity reported by the driver | `nvidia-smi topo -m` CPU/NUMA affinity columns | All; warns when the driver does not expose affinity |
+| preflight | `pcie_link` | GPU PCIe link status and negotiated characteristics | `nvidia-smi -q -d PCI` | All |
+| preflight | `nvlink` | GPU NVLink status | `nvidia-smi nvlink -s` | A100, H100, H200, B200, GB200 and GB300 with current `nvlink` flags; others SKIP |
+| preflight | `fabricmanager` | Fabric Manager service state | `systemctl is-active nvidia-fabricmanager` | A100, H100, H200, B200, GB200, B300, GB300; others SKIP |
+| preflight | `kernel_xid` | NVIDIA Xid events in the current boot log | `journalctl -k --no-pager -b` | All |
+| preflight | `ecc_remap` | ECC errors, retired pages and row remapping | `nvidia-smi -q -d ECC,REMAP,RETIRED_PAGES` | All |
+| preflight | `clocks_throttle` | GPU hardware slowdown, thermal and power-brake events | `nvidia-smi --query-gpu=index,clocks_event_reasons.active --format=csv,noheader` (legacy query on failure) | All |
+| diagnostics | `dcgmi` | DCGM diagnostic suite | `dcgmi diag -r <level> -j` | All |
+| bandwidth | `babelstream` | GPU memory bandwidth workloads | `cuda-stream --device <gpu>` | All |
+| bandwidth | `nvbandwidth` | Configured GPU memory and interconnect bandwidth workloads | `nvbandwidth -t <configured-test>`; optional `mpirun` for multi-node | All have test names; multi-node is GB300 only and requires at least two hosts. See build caveat below. |
+| burn | `gpu_burn` | Sustained GPU compute stress and health monitoring | `gpu_burn -m <percent>% [-tc] [-d] <seconds>` or `gpu-fryer [options] <seconds>` | All |
+
+### Network Validation
+
+| Category | Check | Test content | Main command(s) | Target SKUs / conditions |
+|---|---|---|---|---|
+| preflight | `network_mode` | Detect or confirm the OCI RDMA network mode | `curl -fsSL --max-time <seconds> -H 'Authorization: Bearer Oracle' <IMDS-host-URL>` | All |
+| diagnostics | `nic_inventory` | NIC carrier, negotiated speed and optional expected LLDP peer | `ethtool <interface>`; optional `lldpcli` | All; enable and configure interfaces; LLDP requires a host agent and switch advertisements |
+| preflight | `rdma_iface` | Active RDMA devices, netdevs and multiplanar VRF bindings | `rdma link`; `ip -j -d link show` in multiplanar mode | All; requires suitable RDMA devices |
+| preflight | `rdma_link` | Active RDMA devices and VRF bindings | Same as `rdma_iface` (compatibility alias) | All; requires suitable RDMA devices |
+| diagnostics | `network_ping` | Configured local or cross-host IP paths and packet loss, optionally sampled | `ping` with configured source, family and optional VRF | All; enable and configure paths; ICMP and routing must be allowed |
+| rdma | `gpudirect_rdma` | GPUDirect RDMA prerequisites | `lsmod`; `ib_write_bw --help` | All; requires GPUDirect RDMA prerequisites |
+| diagnostics | `tcp_bandwidth` | Frontend or backend TCP throughput | `iperf3` client with source binding and optional VRF | All; enable and configure paths and running target servers |
+| rdma | `rdma_bw` | Per-rail RDMA write bandwidth | `ib_write_bw [options] -d <device> [server-address]` | All; multi-host, suitable RDMA devices required |
+| rdma | `rdma_lat` | Per-rail RDMA write latency | `ib_write_lat [options] -d <device> [server-address]` | All; multi-host, suitable RDMA devices required |
+| rdma | `rdma_perf` | Per-rail RDMA write bandwidth and latency | `ib_write_bw [options] -d <device> [server-address]`; `ib_write_lat [options] -d <device> [server-address]` | All; multi-host, suitable RDMA devices required |
+| rdma | `rdma_read` | Per-rail RDMA read bandwidth | `ib_read_bw [options] -d <device> [server-address]` | All; multi-host, suitable RDMA devices required |
+| rdma | `rdma_send` | Per-rail RDMA send bandwidth | `ib_send_bw [options] -d <device> [server-address]` | All; multi-host, suitable RDMA devices required |
+| rdma | `gdr_perf` | Per-rail RDMA write bandwidth using GPU memory | `ib_write_bw [options] --use_cuda -d <device> [server-address]` | All; multi-host, CUDA-enabled perftest and GPUDirect RDMA required |
+
+### Storage Validation
+
+| Category | Check | Test content | Main command(s) | Target SKUs / conditions |
+|---|---|---|---|---|
+| diagnostics | `storage` | Filesystem capacity and striping; optional read-only I/O | `df -hT <path>`; `xfs_info <path>`; `lfs df -h <path>`; `lfs getstripe <path>`; optional read-only `fio` | All; disabled until configured |
+| diagnostics | `lustre_client` | Lustre mount, capacity and stripe configuration | `findmnt`; `lfs df`; `lfs getstripe` | All; enable and configure a mounted Lustre path |
+| diagnostics | `filesystem_perf` | Local NVMe, shared filesystem or Lustre read/write throughput and IOPS | `fio` on configured files or dedicated test directories | All; enable and configure jobs, paths and workload; write jobs need free space |
+| diagnostics | `object_storage` | OCI Object Storage download throughput | `oci os object get`; `wc`; temporary-file cleanup | All; enable and configure bucket, existing object, scratch directory and read access |
+| diagnostics | `object_upload` | OCI Object Storage upload throughput and temporary object cleanup | `oci os object put`; `oci os object delete` | All; enable and configure source file, bucket, dedicated prefix, create/delete access and supported OCI CLI |
+
+### Distributed GPU Validation
+
+| Category | Check | Test content | Main command(s) | Target SKUs / conditions |
+|---|---|---|---|---|
+| nccl | `nccl_local_allreduce` | Single-host NCCL all-reduce bandwidth | `all_reduce_perf -b 8 -e 8G -f 2 -g <gpu-count>` | All; local host |
+| preflight | `placement` | GPU memory fabric and deployment-group placement | IMDS `curl` as in `network_mode`; select hosts from returned or configured inventory | All; multi-host |
+| preflight | `imex` | IMEX service and configured multi-host membership | `cat /etc/nvidia-imex/nodes_config.cfg`; `systemctl is-active nvidia-imex`; IMDS `curl` | GB200, GB300; multi-host |
+| nccl | `nccl_allreduce` | Multi-host NCCL all-reduce bandwidth | `mpirun [host, rank and environment options] all_reduce_perf -b 1G -e 16G -f 2 -g 1 -n 50` | All; multi-host |
+| nccl | `nccl_alltoall` | Multi-host NCCL all-to-all bandwidth | `mpirun [host, rank and environment options] alltoall_perf -b 1G -e 16G -f 2 -g 1 -n 50` | All; multi-host |
+
+`nvbandwidth.cuda_arch` currently lists only A10, B300 and GB300; the other
+SKUs need an architecture entry in `config.yaml` before this check can run,
+even with a preinstalled binary. GB300 has `nvlink: true` configured and is
+checked with `nvidia-smi nvlink -s`; B300 remains skipped until its deployment
+specific NVLink behavior is verified.
+For multiplanar RDMA, the perftest commands are prefixed with configured
+`ip vrf exec <vrf> numactl -N <node>` and use the configured IPv6/GID options.
+
+`oca_version` checks Oracle Cloud Agent on each selected host. It reads that
+host's `/etc/os-release`, prefers `dpkg-query` and snap on Debian/Ubuntu and
+`rpm` on Oracle Linux/RHEL-family systems, and also probes the other package
+managers to cover alternative installations. It records all detected package
+versions and the raw output. It is enabled in all profiles; set
+`oca_version.enabled: false` to disable it. Configure a quoted numeric
+`oca_version.min_version` only when the deployment has an approved minimum.
+Without one, or if no package is detected, the check reports WARN. Comparison
+uses the numeric version core and accepts an optional numeric package release;
+epochs, prereleases and other suffixes are reported as uncomparable (WARN), not
+assumed compliant. This checks package versions, not agent service or plugin
+health. TODO(verify): confirm package names and query output on the OCI images in
+use; custom or non-package installations may need additional detection.
+
 ## Profiles
 
 | Profile | Burn per host | Checks | Expected time |
@@ -129,11 +233,17 @@ fallback; pass `--network-mode` to preview the desired commands.
 - `dcgmi`: request JSON for the profile's diagnostic level; preserve individual
   test/entity outcomes and warnings, even after a failed command.
 - `rdma_perf`: run `ib_write_bw` and `ib_write_lat` per rail/device. `rdma_bw` and
-  `rdma_lat` select one workload. Read server/client netdev addresses automatically;
+  `rdma_lat` select one workload. `rdma_read` and `rdma_send` run the corresponding
+  perftest bandwidth workloads. `gdr_perf` repeats write bandwidth with
+  `--use_cuda`, so the transfer buffer is GPU memory. Read server/client netdev
+  addresses automatically;
   probe server readiness before starting the client. Multiplanar uses configured
   `ip vrf exec`, NUMA, IPv6 and GID flags. Single-plane prefers IPv4 and enables
   IPv6 only when discovered/pinned with `rdma_perf.single_plane.ip_family`.
   Report each rail and `(max - min) / mean` spread.
+- `numa_affinity`: validate that `nvidia-smi topo -m` reports CPU and NUMA affinity
+  for every GPU. This checks driver topology reporting; RDMA commands additionally
+  apply the configured per-rail NUMA binding in multiplanar mode.
 - `nccl_allreduce` / `nccl_alltoall`: one rank per GPU with
   `-b 1G -e 16G -f 2 -g 1 -n 50`. All environment and launcher settings are in
   mode-specific config blocks. Multiplanar tuning switches above 32 hosts;
@@ -146,6 +256,78 @@ fallback; pass `--network-mode` to preview the desired commands.
 - `storage`: optionally collect `df`, XFS/Lustre capacity and striping, and run
   a read-only `fio` check against an existing file. It is disabled unless a
   dedicated `storage.path` is configured, so GPU acceptance remains non-invasive.
+
+### Optional network and storage acceptance checks
+
+The `full` profile includes the following checks, each disabled until its own
+configuration is enabled and its required paths or interfaces are supplied. They
+can also be selected with `--tests`. Configure tool paths under `tools` in
+`config.yaml`; `ethtool`, `lldpcli`, Linux `ping`, `iperf3`, `findmnt`, `lfs`,
+`fio`, and the OCI CLI are needed only for the checks that use them. Run with
+`--dry-run` to preview commands on all selected hosts before running workloads.
+All performance thresholds are deployment-specific; an absent threshold reports
+WARN rather than claiming that a measured rate meets an acceptance target.
+
+- `nic_inventory`: check carrier and negotiated speed with `ethtool` for each
+  configured front-end or back-end netdev. Optionally compare LLDP chassis and
+  port identifiers with the configured expected peer. LLDP requires advertisements
+  from the switch and a running host LLDP agent; a missing peer is WARN. Configure
+  interfaces visible to `ethtool` on every selected host. Virtual functions may
+  not expose physical link speed. Matching LLDP and connectivity can detect some
+  wiring mistakes but cannot prove all cabling is correct. Verify the deployed
+  `lldpcli` keyvalue fields and the expected switch-port inventory.
+- `network_ping`: test explicitly configured source/target paths with IPv4 or
+  IPv6 and an optional source VRF. Set each path's `node` to a name in `--nodes`,
+  or omit it for local execution. List only paths that are intended to communicate
+  in the selected single-plane or multiplanar deployment. `sample_count: 0`
+  checks all paths; a positive count reproducibly samples per source host using
+  `seed`. Packet loss above `max_loss_pct` fails. ICMP, routing, addresses and
+  VRF access must be permitted. Same-host ping may be delivered locally without
+  traversing the NIC or switch; it is not proof of physical connectivity.
+- `tcp_bandwidth`: measure TCP throughput with `iperf3` from configured source
+  addresses, optionally inside a VRF. Start an `iperf3` server separately at each
+  target, allow its configured port, and ensure sufficient CPU and bandwidth.
+  `reverse: true` measures the reverse direction. Paths use the same `node`
+  convention as ping. This tests TCP/IP; it does not prove RDMA operation or
+  implement a TCP-over-RDMA protocol. Existing `rdma_perf` and related checks
+  separately exercise RDMA verbs, using the first two selected hosts.
+- `lustre_client`: verify that the configured path is on a Lustre filesystem and
+  run `lfs df` and `lfs getstripe`. Install the client and mount the filesystem on
+  each selected host. Use `filesystem_perf` for actual Lustre I/O measurements.
+- `filesystem_perf`: run configured `fio` sequential or random read/write jobs
+  against local NVMe, shared filesystems, or Lustre. Verify the target mount and
+  backing device independently. Reads require an existing test file and use
+  read-only mode. Writes create uniquely named files in a dedicated directory and
+  request fio to unlink them; allow enough space and check for leftovers after a
+  timeout, interruption or fio failure. Each selected host runs its configured jobs
+  in parallel; results are per host, not a synchronized aggregate benchmark.
+  Specify workload, block size, queue depth, file size and thresholds that match
+  the acceptance plan; account for caching, stripe layout and shared load.
+- `object_storage` downloads an existing object to a unique file in the configured
+  scratch directory, measures end-to-end throughput including CLI startup, and
+  removes the file. `object_upload` uploads an existing source file to a unique
+  name under a dedicated prefix using a conditional create, measures throughput,
+  and deletes that new object. Configure OCI CLI authentication, region/profile
+  options and bucket permissions for every selected host. Upload requires create
+  and delete permissions; download requires read permission and scratch space.
+  Requests and storage may incur charges. A timeout, interruption or failed cleanup
+  can leave a temporary file or object; inspect the recorded path/name and clean it
+  up. TODO(verify): validate conditional upload options and multipart behavior with
+  the deployed OCI CLI. These checks do not benchmark metadata request rates.
+
+For example, after populating the corresponding sections in `config.yaml`:
+
+```bash
+python3 -m gputest.cli run --sku gb300 --nodes n1,n2 \
+  --tests nic_inventory,network_ping,tcp_bandwidth,lustre_client,filesystem_perf,object_storage,object_upload --dry-run
+```
+
+These data-plane probes do not audit all VCN route tables, security lists, network
+security groups or physical switch ports. Front-end RDMA over CFAB and a specific
+TCP-over-RDMA protocol remain unimplemented until the deployment's meaning,
+supported hardware and software stack are confirmed. Negotiated line speed is not
+the same as measured application throughput; configure 200/400 Gb/s targets only
+after establishing a suitable known-good baseline.
 
 NCCL/placement group nodes by `customerGpuMemoryFabric` (GMF). Jobs of up to
 18 hosts must fit one GMF; larger jobs prefer matching `customerLocalBlock`.

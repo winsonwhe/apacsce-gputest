@@ -6,7 +6,7 @@ import math
 import re
 import statistics
 
-from gputest import multihost_checks, parsers
+from gputest import multihost_checks, optional_checks, parsers  # noqa: F401
 from gputest.core import Result, RunContext, check
 
 # ---------------------------------------------------------------------------
@@ -212,6 +212,33 @@ def gpu_topology(ctx: RunContext) -> Result:
     return Result('gpu_topology', 'SKIP' if ctx.dry_run else ('FAIL' if issues else 'PASS'),
                   'dry-run' if ctx.dry_run else ('; '.join(issues) or 'GPU/NIC topology complete'),
                   parsed, _raw=rr.stdout + rr.stderr)
+
+
+@check('numa_affinity', category='preflight')
+def numa_affinity(ctx: RunContext) -> Result:
+    """Validate that nvidia-smi reports CPU and NUMA affinity per GPU."""
+    rr = ctx.run([ctx.config['tools']['nvidia_smi'], 'topo', '-m'],
+                 mock_fixture=f'gpu_topology_{ctx.sku}.txt')
+    parsed = parsers.parse_gpu_topology_affinity(rr.stdout)
+    if ctx.dry_run:
+        return Result('numa_affinity', 'SKIP', 'dry-run', parsed)
+    if rr.returncode:
+        return Result('numa_affinity', 'FAIL', f'topology command exited {rr.returncode}', parsed,
+                      _raw=rr.stdout + rr.stderr)
+    expected = ctx.sku_config()['gpu_count']
+    rows = parsed['rows']
+    if not parsed['available']:
+        return Result('numa_affinity', 'WARN', 'CPU/NUMA affinity columns unavailable', parsed,
+                      _raw=rr.stdout)
+    issues = []
+    if len(rows) != expected:
+        issues.append(f'expected affinity for {expected} GPUs, found {len(rows)}')
+    if any(not row['cpu_affinity'] or row['numa_affinity'] in ('N/A', 'N/A.')
+           for row in rows.values()):
+        issues.append('one or more GPUs have incomplete CPU/NUMA affinity')
+    return Result('numa_affinity', 'FAIL' if issues else 'PASS',
+                  '; '.join(issues) or 'GPU CPU/NUMA affinity reported', parsed,
+                  _raw=rr.stdout + rr.stderr)
 
 
 def _diagnostic_result(ctx, name, cmd, fixture, parser=None, *, warn_on=None):

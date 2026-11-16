@@ -47,7 +47,7 @@ def annotate(result, ctx):
     elif name == 'babelstream':
         for metric, value in cfg[name]['thresholds'][ctx.sku].items():
             add(metric, value, '>=', f'babelstream.thresholds.{ctx.sku}.{metric}')
-    elif name.startswith('rdma_') and name in ('rdma_perf', 'rdma_bw', 'rdma_lat'):
+    elif name.startswith('rdma_') and name in ('rdma_perf', 'rdma_bw', 'rdma_lat', 'rdma_read', 'rdma_send', 'gdr_perf'):
         mode = cfg['rdma_perf'][ctx.network_mode]
         for metric, rule in [('bw_min_gbps', '>='), ('lat_max_us', '<=')]:
             if (name == 'rdma_bw' and metric.startswith('lat')) or (name == 'rdma_lat' and metric.startswith('bw')):
@@ -80,7 +80,7 @@ def performance_values(name, metrics):
         return {f'gpu{gpu}/{bench}_gbs': values[0]
                 for gpu, benches in metrics.get('per_gpu', {}).items()
                 for bench, values in benches.items() if len(values) == 1}
-    if name in ('rdma_perf', 'rdma_bw', 'rdma_lat'):
+    if name in ('rdma_perf', 'rdma_bw', 'rdma_lat', 'rdma_read', 'rdma_send', 'gdr_perf'):
         return {f'{r["server_device"]}/{key}': r[key] for r in metrics.get('rails', [])
                 for key in ('bw_gbps', 'lat_us') if r.get(key) is not None}
     if name.startswith('nccl_') and metrics.get('largest'):
@@ -90,7 +90,7 @@ def performance_values(name, metrics):
 
 def _signature(ctx, result):
     """Reject different workloads even when the check names/scale are identical."""
-    section = 'rdma_perf' if result.name.startswith('rdma_') else (
+    section = 'rdma_perf' if result.name.startswith('rdma_') or result.name == 'gdr_perf' else (
         'nccl' if result.name.startswith('nccl_') else result.name)
     options = dict(ctx.config.get(section, {}))
     # Include all workload options and limits, excluding build locations and reference data.

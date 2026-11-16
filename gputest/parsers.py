@@ -396,3 +396,111 @@ def parse_gpu_topology(text: str) -> dict:
             if len(gpus) > 1 or 'CPU' in fields:
                 return {'gpus': gpus, 'nics': nics}
     return {'gpus': [], 'nics': []}
+
+
+def parse_gpu_topology_affinity(text: str) -> dict:
+    """Extract CPU/NUMA affinity columns from ``nvidia-smi topo -m``."""
+    rows = {}
+    has_affinity = any('CPU Affinity' in line and 'NUMA Affinity' in line
+                       for line in text.splitlines())
+    if not has_affinity:
+        return {'available': False, 'rows': rows}
+    for line in text.splitlines():
+        fields = line.split()
+        if not fields or not re.fullmatch(r'GPU\d+', fields[0]) or len(fields) < 4:
+            continue
+        # The final three columns are CPU affinity, NUMA affinity and GPU NUMA ID.
+        cpu, numa, gpu_numa = fields[-3:]
+        rows[fields[0]] = {'cpu_affinity': cpu, 'numa_affinity': numa,
+                           'gpu_numa_id': gpu_numa}
+    return {'available': bool(rows), 'rows': rows}
+
+
+def parse_ethtool_link(text: str) -> dict:
+    """Read negotiated speed and carrier from ethtool output."""
+    speed = re.search(r'^\s*Speed:\s*(\d+)Mb/s\s*$', text, re.MULTILINE)
+    link = re.search(r'^\s*Link detected:\s*(yes|no)\s*$', text, re.MULTILINE | re.IGNORECASE)
+    return {'speed_mbps': int(speed.group(1)) if speed else None,
+            'link': link.group(1).lower() if link else None}
+
+
+def parse_lldp_peer(text: str) -> dict:
+    """Read lldpcli keyvalue peer fields, keeping multiple advertised peers."""
+    fields = [line.split('=', 1) for line in text.splitlines() if '=' in line]
+    return {name: [v for k, v in fields if k.endswith(suffix)]
+            for name, suffix in [('peer_chassis', '.chassis.name'), ('peer_port', '.port.ifname')]}
+
+
+def parse_ping_loss(text: str) -> dict:
+    """Extract the packet-loss percentage from Linux ping summary output."""
+    match = re.search(r'(\d+(?:\.\d+)?)%\s+packet loss', text)
+    return {'loss_pct': float(match.group(1)) if match else None}
+
+
+def parse_iperf3(text: str) -> dict:
+    """Extract received TCP throughput from iperf3 JSON."""
+    data = json.loads(text)
+    if data.get('error'):
+        raise ValueError('iperf3 reported failure')
+    bits = float(data['end']['sum_received']['bits_per_second'])
+    if not math.isfinite(bits) or bits < 0:
+        raise ValueError('negative throughput')
+    return {'gbps': bits / 1e9}
+
+
+def parse_fio(text: str, writing: bool) -> dict:
+    """Extract fio bandwidth and IOPS from one grouped job."""
+    entries = json.loads(text)['jobs']
+    if not entries or any(j.get('error', 0) for j in entries):
+        raise ValueError('fio reported failure')
+    values = entries[0]['write' if writing else 'read']
+    mib = float(values['bw_bytes']) / (1024 * 1024)
+    iops = float(values['iops'])
+    if not all(math.isfinite(v) and v >= 0 for v in (mib, iops)):
+        raise ValueError('invalid fio metrics')
+    return {'mib_s': mib, 'iops': iops}
+
+
+def parse_os_release(text: str) -> dict:
+    """Extract OS identifiers from os-release without evaluating shell content."""
+    import shlex
+
+    result = {}
+    for line in text.splitlines():
+        if '=' not in line or line.lstrip().startswith('#'):
+            continue
+        key, value = line.split('=', 1)
+        if key not in ('ID', 'ID_LIKE', 'PRETTY_NAME'):
+            continue
+        try:
+            parts = shlex.split(value, comments=True)
+        except ValueError:
+            continue
+        if len(parts) == 1:
+            result[key.lower()] = parts[0]
+    return result
+
+
+def parse_oca_package(text: str, manager: str) -> dict:
+    """Extract the installed OCA package version from a package query."""
+    lines = [line.strip() for line in text.splitlines() if line.strip()]
+    if manager == 'rpm':
+        version = lines[0] if len(lines) == 1 else ''
+    elif manager == 'dpkg':
+        fields = lines[0].split() if len(lines) == 1 else []
+        version = fields[1] if len(fields) == 2 and fields[0] == 'ii' else ''
+    elif manager == 'snap':
+        rows = [line.split() for line in lines if line.split()[0] == 'oracle-cloud-agent']
+        enabled = [row for row in rows if len(row) >= 6 and 'disabled' not in row[5].split(',')]
+        version = enabled[0][1] if len(enabled) == 1 else ''
+    else:
+        raise ValueError('unknown package manager')
+    if not re.fullmatch(r'[0-9][A-Za-z0-9.+:~_-]*', version):
+        return {'version': None}
+    return {'version': version}
+
+
+def parse_oca_version_core(version: str) -> dict:
+    """Read a numeric core only when the suffix cannot denote a prerelease."""
+    match = re.fullmatch(r'(\d+(?:\.\d+)*)(?:-\d+(?:\.\d+)*)?', version)
+    return {'components': tuple(map(int, match.group(1).split('.'))) if match else None}
