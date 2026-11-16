@@ -290,15 +290,38 @@ def nvlink(ctx: RunContext) -> Result:
                               warn_on=lambda m: any(v > 0 for v in m.get('errors', {}).values()))
 
 
+def _clock_event_query(ctx):
+    """Try the current query name, then the legacy name on command failure."""
+    raw = []
+    for field in ('clocks_event_reasons.active', 'clocks_throttle_reasons.active'):
+        rr = ctx.run([ctx.config['tools']['nvidia_smi'], f'--query-gpu=index,{field}',
+                      '--format=csv,noheader'],
+                     timeout=ctx.config.get('diagnostics', {}).get('timeout_s', 30),
+                     mock_fixture='nvidia_smi_throttle.txt')
+        raw.append(rr.stdout + rr.stderr)
+        if rr.skipped or rr.returncode in (0, 127):
+            break
+    return rr, '\n'.join(raw)
+
+
 @check('clocks_throttle', category='preflight')
 def clocks_throttle(ctx: RunContext) -> Result:
-    """Capture NVIDIA clock throttle reasons for later comparison with burn."""
-    cmd = [ctx.config['tools']['nvidia_smi'],
-           '--query-gpu=index,clocks_throttle_reasons.active', '--format=csv,noheader']
-    return _diagnostic_result(ctx, 'clocks_throttle', cmd, 'nvidia_smi_throttle.txt',
-                              lambda text: {'rows': [line.strip() for line in text.splitlines() if line.strip()]},
-                              warn_on=lambda m: any('none' not in x.lower() and 'no throttle' not in x.lower()
-                                                    for x in m['rows']))
+    """Capture an instantaneous snapshot of hardware clock-event reasons."""
+    rr, raw = _clock_event_query(ctx)
+    if rr.skipped:
+        return Result('clocks_throttle', 'SKIP', 'dry-run')
+    if rr.returncode == 127:
+        return Result('clocks_throttle', 'SKIP', 'nvidia-smi unavailable', _raw=raw)
+    if rr.returncode:
+        return Result('clocks_throttle', 'WARN', 'clock-event query unavailable', _raw=raw)
+    metrics = parsers.parse_clock_event_reasons(rr.stdout)
+    findings = {gpu: row for gpu, row in metrics['gpus'].items() if int(row['hardware_mask'], 16)}
+    incomplete = not metrics['gpus'] or bool(metrics['invalid_rows'])
+    message = ('hardware clock-event reasons detected' if findings else
+               'clock-event output incomplete or unrecognized' if incomplete else
+               'no hardware clock-event reasons in snapshot')
+    return Result('clocks_throttle', 'WARN' if findings or incomplete else 'PASS',
+                  message, metrics, _raw=raw)
 
 
 @check('software_versions', category='preflight')
@@ -459,11 +482,7 @@ def gpu_burn(ctx: RunContext) -> Result:
         fixture=fixture, cwd=cwd, env=env,
     )
     xid_after = ctx.run(log_cmd, mock_fixture='kernel_log.txt')
-    throttle_rr = ctx.run(
-        [ctx.config['tools']['nvidia_smi'],
-         '--query-gpu=index,clocks_throttle_reasons.active', '--format=csv,noheader'],
-        mock_fixture='nvidia_smi_throttle.txt',
-    )
+    throttle_rr, _ = _clock_event_query(ctx)
     problem = _command_problem('gpu_burn', rr)
     if problem and problem.status == 'SKIP':
         return problem
@@ -511,14 +530,17 @@ def gpu_burn(ctx: RunContext) -> Result:
     metrics['xid_delta'] = xid_delta
     if xid_delta:
         issues.append('new kernel Xid event(s): ' + ', '.join(str(e['code']) for e in xid_delta))
-    throttle = {}
-    for line in throttle_rr.stdout.splitlines():
-        fields = [part.strip() for part in line.split(',', 1)]
-        if len(fields) == 2 and fields[1] and 'none' not in fields[1].lower() and 'no throttle' not in fields[1].lower():
-            throttle[fields[0]] = fields[1]
-    if throttle:
-        metrics['throttle_reasons'] = throttle
-        issues.append('clock throttle during burn: ' + str(throttle))
+    throttle = parsers.parse_clock_event_reasons(throttle_rr.stdout)
+    metrics['clock_event_snapshot'] = throttle
+    selected_ids = {str(gpu['gpu_id']) for gpu in gpus}
+    findings = {gpu: row for gpu, row in throttle['gpus'].items()
+                if gpu in selected_ids and int(row['hardware_mask'], 16)}
+    if findings:
+        issues.append('hardware clock-event reasons in post-burn snapshot: ' + str(findings))
+    if (throttle_rr.returncode or throttle_rr.skipped or throttle['invalid_rows']
+            or not selected_ids.issubset(throttle['gpus'])):
+        warning = 'post-burn clock-event snapshot unavailable or incomplete'
+        sample_error = f'{sample_error}; {warning}' if sample_error else warning
     for field in ('temp_c', 'power_w'):
         values = [g[field] for g in peaks.values() if field in g]
         if values:

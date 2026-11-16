@@ -16,6 +16,8 @@ examples, not measurements taken on a B300/GB300 host:
 - `dcgmi_native.json`: representative outcomes in the NVIDIA schema at
   https://github.com/NVIDIA/DCGM/blob/master/testing/python3/dcgm_diag_schema.json .
 - `gpu_samples.txt`: illustrative nvidia-smi CSV samples for peak aggregation.
+- `nvidia_smi_throttle.txt`: synthetic zero clock-event masks; verify the query
+  names and output against real driver captures.
 
 Replace illustrative examples with raw hardware captures when available. These
 fixtures test parsing and decision logic, not hardware performance or compatibility.

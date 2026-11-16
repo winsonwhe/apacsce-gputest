@@ -7,6 +7,26 @@ import math
 import re
 
 
+def parse_clock_event_reasons(text: str) -> dict:
+    """Parse active NVML clock-event masks from nvidia-smi CSV.
+
+    Hardware slowdown (0x8), thermal slowdown (0x40), and power brake
+    (0x80): https://docs.nvidia.com/deploy/nvml-api/group__nvmlClocksEventReasons.html
+    Other bits are retained but do not indicate these hardware conditions.
+    """
+    rows, invalid = {}, []
+    for line in text.splitlines():
+        if not line.strip():
+            continue
+        parts = [part.strip() for part in line.split(',', 1)]
+        if len(parts) != 2 or not parts[0].isdigit() or not re.fullmatch(r'0[xX][0-9a-fA-F]+', parts[1]):
+            invalid.append(line.strip())
+            continue
+        mask = int(parts[1], 16)
+        rows[parts[0]] = {'mask': parts[1], 'hardware_mask': hex(mask & 0xc8)}
+    return {'gpus': rows, 'invalid_rows': invalid}
+
+
 def parse_xid_events(text: str) -> list[dict]:
     """Parse NVIDIA Xid events from kernel/journal output."""
     events = []

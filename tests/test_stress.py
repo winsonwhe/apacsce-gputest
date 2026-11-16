@@ -314,3 +314,44 @@ def test_full_dcgm_level_four_override(ctx, monkeypatch):
     ctx.config['dcgmi']['profile_levels']['full'] = 4
     result = checks.dcgmi(ctx)
     assert result.status == 'PASS' and result.metrics['level'] == 4
+
+
+@pytest.mark.parametrize(('mask', 'preflight', 'burn'), [
+    ('0x0000000000000000', 'PASS', 'PASS'),
+    ('0x0000000000000005', 'PASS', 'PASS'),
+    ('0x0000000000000008', 'WARN', 'FAIL'),
+    ('0x0000000000000040', 'WARN', 'FAIL'),
+    ('0x0000000000000080', 'WARN', 'FAIL'),
+    ('0x0000000000000045', 'WARN', 'FAIL'),
+    ('N/A', 'WARN', 'WARN'),
+])
+def test_clock_event_masks(ctx, monkeypatch, mask, preflight, burn):
+    original = ctx.run
+
+    def execute(cmd, **kwargs):
+        if any('clocks_event_reasons.active' in arg for arg in cmd):
+            return success('\n'.join(f'{i}, {mask}' for i in range(4)))
+        return original(cmd, **kwargs)
+
+    monkeypatch.setattr(ctx, 'run', execute)
+    assert checks.clocks_throttle(ctx).status == preflight
+    assert checks.gpu_burn(ctx).status == burn
+
+
+def test_clock_event_legacy_fallback(ctx, monkeypatch):
+    calls = []
+
+    def execute(cmd, **kwargs):
+        calls.append(cmd[1])
+        if 'clocks_event_reasons' in cmd[1]:
+            return RunResult('', 'unknown field', 1, 0)
+        return success('0, 0x0000000000000000')
+
+    monkeypatch.setattr(ctx, 'run', execute)
+    assert checks.clocks_throttle(ctx).status == 'PASS'
+    assert 'clocks_throttle_reasons.active' in calls[1]
+
+
+def test_clock_event_unavailable_warns(ctx, monkeypatch):
+    monkeypatch.setattr(ctx, 'run', lambda *a, **kw: RunResult('', 'unsupported', 1, 0))
+    assert checks.clocks_throttle(ctx).status == 'WARN'

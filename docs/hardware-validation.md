@@ -11,12 +11,13 @@ captures and execution on each supported SKU/network mode before production use.
 |---|---|
 | `network_mode` | Actual OCI IMDS schema/types, absent/1 vs 4 planes, access from every target, mixed-mode rejection and non-OCI fallback. |
 | `nvidia_smi` | GPU count/model/memory, SKU-specific driver minima, ECC reporting, partial A10 policy and query availability. Confirm configured B300 shape vs GB300 distinctions; CUDA toolkit minimum is not currently enforced. |
+| `clocks_throttle` | Verify supported query names and hexadecimal masks on installed drivers. The check is an instantaneous snapshot; GPU idle and software power-cap bits are not hardware findings. |
 | `gpu_topology` | Actual topo matrix header and NIC enumeration, virtual-function vs physical-NIC counts, missing devices and driver-dependent formats. Presence does not prove bandwidth/affinity correctness. |
 | `fabricmanager` | Whether the deployment uses this service, its matching driver version, permissions and failure behavior on NVSwitch hosts. |
 | `numa_topology` | Grace CPU/memory node layout, actual counts and zero-MB nodes; x86 alternatives. |
 | `rdma_iface` / `rdma_link` | Single-plane device counts/names/netdev mapping on every shape; multiplanar four VF rails, VRF presence, iproute2 master JSON formats and correct VF-to-VRF binding. Ignore unused DOWN entries. |
 | `ssh_connectivity` / executor | Controller and launcher-to-peer keys, trusted host keys, timeouts, cancellation/disconnection cleanup and remote command permissions. SSH setup is not full mesh provisioning. |
-| `gpu_burn` | CUDA 10.3 compilation and runtime PTX, numerical error handling, one-hour stability, throughput balance and baseline tolerance, memory selection, clocks/cooling/power, telemetry sampling. Validate optional fryer CLI/NVML paths; fryer cannot certify numerical correctness. Absolute thermal/power limits are not enforced. |
+| `gpu_burn` | CUDA 10.3 compilation and runtime PTX, numerical error handling, one-hour stability, throughput balance and baseline tolerance, memory selection, clocks/cooling/power, telemetry sampling and the post-burn clock-event snapshot (which cannot detect transient events). Validate optional fryer CLI/NVML paths; fryer cannot certify numerical correctness. Absolute thermal/power limits are not enforced. |
 | `nvbandwidth` | Exact installed options/test names, native SUM output and units, build flags, P2P/NVLink availability, SKU floors. Multi-node mode additionally needs one GMF, shared paths, IMEX, MPI binding and all selected GPU ranks. |
 | `babelstream` | CUDA architecture/build options, device selection, each native output/units, all five bandwidth floors and GPU-to-GPU spread under sustained load. |
 | `dcgmi` | Installed DCGM JSON schema, selected r1/r2/r3/r4 support, runtime/permissions, entity-level warnings/errors and idle-GPU requirements. Synthetic level fixtures do not prove hardware test coverage. |
