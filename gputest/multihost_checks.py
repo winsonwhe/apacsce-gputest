@@ -296,12 +296,48 @@ def nccl_allreduce(ctx: RunContext) -> Result:
     return _nccl(ctx, 'allreduce')
 
 
+@check('nccl_local_allreduce', category='nccl')
+def nccl_local_allreduce(ctx: RunContext) -> Result:
+    """Run NCCL all-reduce within one host to validate the local fabric."""
+    cfg = ctx.config['nccl']
+    gpu_count = ctx.sku_config().get('gpu_count')
+    if not gpu_count:
+        return Result('nccl_local_allreduce', 'SKIP', 'GPU count is not configured')
+    args = [str(value) for value in cfg.get('local_args', ['-b', '8', '-e', '8G', '-f', '2'])]
+    command = [ctx.config['tools']['allreduce_perf'], *args, '-g', str(gpu_count)]
+    rr = ctx.run(command, timeout=cfg['timeout_s'], mock_fixture='nccl_allreduce.txt')
+    if rr.skipped:
+        return Result('nccl_local_allreduce', 'SKIP', 'dry-run',
+                      {'gpu_count': gpu_count, 'command': shlex.join(command)})
+    if rr.returncode == 127:
+        return Result('nccl_local_allreduce', 'SKIP', 'all_reduce_perf unavailable', _raw=rr.stderr)
+    parsed = parsers.parse_nccl(rr.stdout)
+    largest = parsed['largest']
+    issues = []
+    if rr.returncode or not largest:
+        issues.append('launcher failed or result table missing')
+    elif largest['size'] < 1:
+        issues.append('largest message size is invalid')
+    busbw = largest['in_place']['busbw'] if largest else None
+    limit = cfg.get('local_threshold_gbs')
+    if busbw is not None and limit is not None and busbw < limit:
+        issues.append(f'local busbw below {limit} GB/s')
+    metrics = {'gpu_count': gpu_count, 'largest': largest, 'rows': parsed['rows'],
+               'busbw_gbs': busbw, 'threshold_gbs': limit,
+               'uncalibrated': limit is None and not issues,
+               'command': shlex.join(command)}
+    status = 'FAIL' if issues else ('WARN' if limit is None else 'PASS')
+    message = '; '.join(issues) or ('threshold unset; calibrate baseline' if limit is None
+                                    else 'local all-reduce threshold met')
+    return Result('nccl_local_allreduce', status, message, metrics, _raw=rr.stdout + rr.stderr)
+
+
 @check('nccl_alltoall', category='nccl', requires_multi_host=True)
 def nccl_alltoall(ctx: RunContext) -> Result:
     return _nccl(ctx, 'alltoall')
 
 
-@check('imex', category='preflight', skus=['gb300'], requires_multi_host=True)
+@check('imex', category='preflight', skus=['gb200', 'gb300'], requires_multi_host=True)
 def imex(ctx: RunContext, nodes=None, inventory=None) -> Result:
     """Validate existing per-GMF membership; never configure/restart across racks.
 

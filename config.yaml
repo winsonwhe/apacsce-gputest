@@ -9,10 +9,29 @@ profiles:
   full: &full [network_mode, nvidia_smi, kernel_xid, ecc_remap, pcie_link, nvlink,
                clocks_throttle, software_versions, gpu_topology, fabricmanager, numa_topology,
                rdma_iface, gpudirect_rdma, ssh_connectivity, placement, imex, gpu_burn, nvbandwidth,
-               babelstream, dcgmi, rdma_perf, nccl_allreduce, nccl_alltoall]
+               babelstream, dcgmi, rdma_perf, nccl_local_allreduce, nccl_allreduce, nccl_alltoall,
+               storage]
   a10_quick: *quick
   a10_standard: *standard
   a10_full: *full
+  a100_quick: *quick
+  a100_standard: *standard
+  a100_full: *full
+  h100_quick: *quick
+  h100_standard: *standard
+  h100_full: *full
+  h200_quick: *quick
+  h200_standard: *standard
+  h200_full: *full
+  l40s_quick: *quick
+  l40s_standard: *standard
+  l40s_full: *full
+  b200_quick: *quick
+  b200_standard: *standard
+  b200_full: *full
+  gb200_quick: *quick
+  gb200_standard: *standard
+  gb200_full: *full
 
 # Budget assumes preinstalled tools; builds and slow/failing hosts add time.
 profile_settings:
@@ -67,6 +86,83 @@ skus:
     imex_capable: false
     arch: x86_64
 
+  # TODO(verify): OCI catalog defaults below need confirmation against the
+  # exact shape README and host output before production use. They provide
+  # selectable coverage and architecture/build settings; thresholds remain
+  # unset where no local calibration exists.
+  a100:
+    gpu_count: 8
+    gpu_model_pattern: "A100"
+    mem_mib_per_gpu: 81251
+    memory_tolerance_mib: 1024
+    numa_cpu_nodes_min: 1
+    driver_min: "525"
+    cuda_min: "11.8"
+    fabricmanager_required: true
+    imex_capable: false
+    nvlink: true
+    arch: x86_64
+  h100:
+    gpu_count: 8
+    gpu_model_pattern: "H100"
+    mem_mib_per_gpu: 81559
+    memory_tolerance_mib: 1024
+    numa_cpu_nodes_min: 1
+    driver_min: "535"
+    cuda_min: "12.2"
+    fabricmanager_required: true
+    imex_capable: false
+    nvlink: true
+    arch: x86_64
+  h200:
+    gpu_count: 8
+    gpu_model_pattern: "H200"
+    mem_mib_per_gpu: 141312
+    memory_tolerance_mib: 2048
+    numa_cpu_nodes_min: 1
+    driver_min: "550"
+    cuda_min: "12.4"
+    fabricmanager_required: true
+    imex_capable: false
+    nvlink: true
+    arch: x86_64
+  l40s:
+    gpu_count: 8
+    gpu_model_pattern: "L40S"
+    mem_mib_per_gpu: 46068
+    memory_tolerance_mib: 1024
+    numa_cpu_nodes_min: 1
+    driver_min: "535"
+    cuda_min: "12.2"
+    fabricmanager_required: false
+    imex_capable: false
+    nvlink: false
+    arch: x86_64
+  b200:
+    gpu_count: 8
+    gpu_model_pattern: "B200"
+    mem_mib_per_gpu: 180224
+    memory_tolerance_mib: 2048
+    numa_cpu_nodes_min: 1
+    driver_min: "570"
+    cuda_min: "12.8"
+    fabricmanager_required: true
+    imex_capable: false
+    nvlink: true
+    arch: x86_64
+  gb200:
+    gpu_count: 4
+    gpu_model_pattern: "GB200"
+    mem_mib_per_gpu: 180224
+    memory_tolerance_mib: 2048
+    numa_cpu_nodes_min: 2
+    driver_min: "570"
+    cuda_min: "12.8"
+    fabricmanager_required: true
+    imex_capable: true
+    nvlink: true
+    arch: aarch64
+
 network:
   expected_planes: {single_plane: 1, multiplanar: 4}
   mode: auto  # auto | single_plane | multiplanar
@@ -77,6 +173,12 @@ network:
     # Discovered ACTIVE + LINK_UP devices, mapped to netdevs. Optional pins below.
     # TODO(verify): device count/names on each deployment; README has shape-specific examples.
     a10: {hca_names: [], expected_active_hcas: 2}
+    a100: {hca_names: [], expected_active_hcas: 8}
+    h100: {hca_names: [], expected_active_hcas: 8}
+    h200: {hca_names: [], expected_active_hcas: 8}
+    l40s: {hca_names: [], expected_active_hcas: 8}
+    b200: {hca_names: [], expected_active_hcas: 8}
+    gb200: {hca_names: [], expected_active_hcas: 4}
     gb300: {hca_names: [], expected_active_hcas: 4}
     b300: {hca_names: [], expected_active_hcas: 8}
   multiplanar:
@@ -125,6 +227,8 @@ nccl:
   timeout_s: 1800
   args: [-b, 1G, -e, 16G, -f, '2', -g, '1', -n, '50']
   largest_size_bytes: 17179869184
+  local_args: [-b, 8, -e, 8G, -f, '2']
+  local_threshold_gbs: null  # TODO(verify): calibrate per SKU and GPU count
   baseline_threshold_pct: 80
   # Optional example busbw GB/s by exact node count (2/16/32/64/80).
   # Leave empty until calibrated for the mode, SKU, and requested 16 GiB size.
@@ -182,7 +286,9 @@ gpu_burn:
   # https://developer.nvidia.com/cuda-gpus
   # gpu-burn make expects COMPUTE=103, not sm_103:
   # https://github.com/wilicc/gpu-burn#building
-  compute_capability: {b300: 103, gb300: 103, a10: 86}
+  compute_capability: {b300: 103, gb300: 103, a10: 86,
+                       a100: 80, h100: 90, h200: 90, l40s: 89,
+                       b200: 100, gb200: 100}
   perf_deviation_threshold_pct: 10
   sample_interval_s: 1
   sample_timeout_s: 10
@@ -200,7 +306,9 @@ babelstream:
   # CUDA_ARCH is passed directly to nvcc's -arch, so use sm_103.
   # https://github.com/UoB-HPC/BabelStream/blob/main/src/cuda/model.cmake
   # https://developer.nvidia.com/cuda-gpus
-  cuda_arch: {b300: sm_103, gb300: sm_103, a10: sm_86}
+  cuda_arch: {b300: sm_103, gb300: sm_103, a10: sm_86,
+              a100: sm_80, h100: sm_90, h200: sm_90, l40s: sm_89,
+              b200: sm_100, gb200: sm_100}
   # Thresholds (GB/s) per SKU, per benchmark type
   thresholds:
     b300:
@@ -258,6 +366,24 @@ nvbandwidth:
       thresholds:
         # TODO(verify): inherited aggregate SUM floor; calibrate on hardware.
         device_to_device_bidirectional_memcpy_read_ce: 9000
+    a100:
+      test_names: [device_to_device_bidirectional_memcpy_read_ce]
+      thresholds: {device_to_device_bidirectional_memcpy_read_ce: null}
+    h100:
+      test_names: [device_to_device_bidirectional_memcpy_read_ce]
+      thresholds: {device_to_device_bidirectional_memcpy_read_ce: null}
+    h200:
+      test_names: [device_to_device_bidirectional_memcpy_read_ce]
+      thresholds: {device_to_device_bidirectional_memcpy_read_ce: null}
+    l40s:
+      test_names: [device_to_device_bidirectional_memcpy_read_ce]
+      thresholds: {device_to_device_bidirectional_memcpy_read_ce: null}
+    b200:
+      test_names: [device_to_device_bidirectional_memcpy_read_ce]
+      thresholds: {device_to_device_bidirectional_memcpy_read_ce: null}
+    gb200:
+      test_names: [device_to_device_bidirectional_memcpy_read_ce]
+      thresholds: {device_to_device_bidirectional_memcpy_read_ce: null}
     b300:
       test_names: [device_to_device_bidirectional_memcpy_read_ce,
                    device_to_device_bidirectional_memcpy_write_sm,
@@ -265,6 +391,16 @@ nvbandwidth:
       thresholds:
         # TODO(verify): inherited floor applies to SUM, not individual links.
         device_to_device_bidirectional_memcpy_read_ce: 750
+
+storage:
+  enabled: false
+  # Set to a mounted Lustre/XFS test directory on hosts where storage validation
+  # is part of acceptance. Leave unset to keep GPU-only validation non-invasive.
+  path: null
+  benchmark_file: null  # Existing file used by fio read-only verification.
+  benchmark: false
+  timeout_s: 1800
+  thresholds: {read_bw_mib_s: null, write_bw_mib_s: null, rand_iops: null}
 
 tools:
   git: git
@@ -300,6 +436,10 @@ tools:
   ibv_devinfo: ibv_devinfo
   lsmod: lsmod
   fabricmanager: nvidia-fabricmanager
+  df: df
+  xfs_info: xfs_info
+  lfs: lfs
+  fio: fio
 
 # Hints follow the supplied manual excerpts; the original PDF is absent.
 # TODO(verify): reconcile these with the deployment's PDF and actual diagnostics.
@@ -335,6 +475,8 @@ troubleshooting:
     - 'Check the requested test names, CUDA build architecture, peer access/NVLink state and aggregate SUM units; calibrate floors per SKU.'
   babelstream:
     - 'Check CUDA device selection, build architecture, memory clocks and MB/s-to-GB/s units; inspect each GPU, not just the average.'
+  storage:
+    - 'Set storage.path to a dedicated mounted test directory; inspect df/lfs getstripe output and use an existing benchmark_file for read-only fio.'
   dcgmi:
     - 'Inspect each DCGM test/entity result and warning; check supported diagnostic level, permissions, idle GPUs and DCGM/driver compatibility.'
   placement: &placement_hints

@@ -1,7 +1,8 @@
 # gputest: GPU validation toolkit
 
-Validate NVIDIA GB300, B300 and A10 hosts with preflight checks, sustained GPU
-load, memory bandwidth, DCGM, two-host RDMA and multi-host NCCL. Python 3.10+,
+Validate OCI NVIDIA A10, A100, H100, H200, L40S, B200, GB200, B300 and GB300
+hosts with preflight checks, sustained GPU load, memory bandwidth, DCGM, two-host
+RDMA and multi-host NCCL. Python 3.10+,
 standard library plus PyYAML; no plugin framework or GPU dependency for mock runs.
 
 ## Install
@@ -93,8 +94,9 @@ timeout on the target, so SSH disconnection leaves a bounded workload.
 | `standard` | 1,200 s | Quick preflights, SSH, burn, nvbandwidth, BabelStream, DCGM r2, RDMA bandwidth and latency | 20 min burn plus diagnostics/bandwidth overhead |
 | `full` | 3,600 s | Standard checks, GMF placement, IMEX, DCGM r3, multi-host all-reduce and all-to-all | 1 h+ |
 
-`a10_quick`, `a10_standard`, `a10_full` are aliases; unsupported Fabric Manager
-and IMEX checks SKIP. Change `profile_settings.<profile>.burn_duration_s` for a
+Per-SKU profiles such as `a100_standard` and `h100_full` are aliases of the base
+profiles. Fabric Manager, NVLink and IMEX are selected from each SKU's capability
+flags; unsupported checks SKIP. Change `profile_settings.<profile>.burn_duration_s` for a
 10–30 minute standard burn or a longer full burn. Set
 `dcgmi.profile_levels.full: 4` for r4 (also change `a10_full` if using that alias).
 Builds, timeout failures, many GPUs and diagnostic levels can extend these budgets.
@@ -138,6 +140,12 @@ fallback; pass `--network-mode` to preview the desired commands.
   single-plane HCA names are discovered and must match across selected hosts.
   Both in-place and out-of-place busbw at the requested largest size must meet
   the floor. Command errors, missing output and validation errors fail.
+- `nccl_local_allreduce`: run single-host all-reduce separately from the
+  multi-host network test. Its threshold is intentionally unset until a
+  per-SKU, per-GPU-count baseline is collected.
+- `storage`: optionally collect `df`, XFS/Lustre capacity and striping, and run
+  a read-only `fio` check against an existing file. It is disabled unless a
+  dedicated `storage.path` is configured, so GPU acceptance remains non-invasive.
 
 NCCL/placement group nodes by `customerGpuMemoryFabric` (GMF). Jobs of up to
 18 hosts must fit one GMF; larger jobs prefer matching `customerLocalBlock`.

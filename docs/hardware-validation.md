@@ -1,7 +1,10 @@
 # Hardware validation required
 
 All automated development verification uses CPU-only fixtures and command plans.
-PDFs named in config/comments were not available. The following checks need real
+PDFs named in config/comments were not available. The configuration includes
+OCI catalog entries for A10, A100, H100, H200, L40S, B200, GB200, B300 and GB300;
+the additional catalog counts, memory values and fabric flags are TODO(verify)
+against the exact shape README and host output. The following checks need real
 captures and execution on each supported SKU/network mode before production use.
 
 | Check | Verify on hardware |

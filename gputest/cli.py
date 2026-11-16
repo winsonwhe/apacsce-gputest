@@ -90,7 +90,7 @@ def cmd_list(_args, config: dict) -> None:
 
 def cmd_run(args, config: dict) -> None:
     if not args.sku:
-        print("--sku is required (a10, gb300 or b300)", file=sys.stderr)
+        print("--sku is required", file=sys.stderr)
         sys.exit(1)
 
     known_skus = set(config.get("skus", {}).keys())
@@ -253,7 +253,7 @@ def _positive_int(value):
 def build_parser() -> argparse.ArgumentParser:
     parser = argparse.ArgumentParser(
         prog="gputest",
-        description="GPU validation toolkit for NVIDIA A10 / B300 / GB300 hosts.",
+        description="GPU validation toolkit for OCI NVIDIA GPU hosts.",
     )
     sub = parser.add_subparsers(dest="command", required=True)
 
@@ -262,12 +262,11 @@ def build_parser() -> argparse.ArgumentParser:
 
     # run
     run_p = sub.add_parser("run", help="Run checks.")
-    run_p.add_argument("--sku", required=True, choices=["a10", "gb300", "b300"],
-                       help="Hardware SKU.")
+    # SKU/profile names come from the selected YAML file, so argparse must not
+    # freeze them to the repository defaults (custom deployments may add one).
+    run_p.add_argument("--sku", required=True, help="Hardware SKU.")
     run_p.add_argument("--profile", default="standard",
-                       choices=["quick", "standard", "full",
-                                "a10_quick", "a10_standard", "a10_full"],
-                       help="Check profile (default: standard).")
+                       help="Check profile from config.yaml (default: standard).")
     run_p.add_argument("--gpu-count", type=_positive_int, default=None,
                        help="Override expected GPU count (useful for partial A10 hosts).")
     run_p.add_argument("--tests", metavar="CHECK,CHECK,...",

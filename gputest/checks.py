@@ -141,11 +141,12 @@ def ssh_connectivity(ctx: RunContext) -> Result:
                   {'nodes_checked': len(ctx.nodes), 'failed_links': failed}, _raw=raw)
 
 
-@check("fabricmanager", category="preflight", skus=["gb300", "b300"])
+@check("fabricmanager", category="preflight")
 def fabricmanager(ctx: RunContext) -> Result:
-    """Check nvidia-fabricmanager service is active (NVSwitch SKUs only)."""
+    """Check nvidia-fabricmanager when required by the configured GPU fabric."""
     if not ctx.sku_config().get("fabricmanager_required", False):
-        return Result("fabricmanager", "SKIP", "not applicable: Fabric Manager is not required")
+        return Result("fabricmanager", "SKIP",
+                      f"not applicable to SKU {ctx.sku!r}: Fabric Manager is not required")
     rr = ctx.run(
         [ctx.config["tools"]["systemctl"], "is-active", "nvidia-fabricmanager"],
         mock_fixture="fabricmanager_active.txt",
@@ -279,9 +280,11 @@ def pcie_link(ctx: RunContext) -> Result:
                               warn_on=lambda m: any(v > 0 for v in m.get('aer', {}).values()))
 
 
-@check('nvlink', category='preflight', skus=['gb300', 'b300'])
+@check('nvlink', category='preflight')
 def nvlink(ctx: RunContext) -> Result:
-    """Check NVLink link state and error counters."""
+    """Check NVLink link state and error counters on NVLink-capable SKUs."""
+    if not ctx.sku_config().get('nvlink', False):
+        return Result('nvlink', 'SKIP', 'not applicable: NVLink is not enabled for this SKU')
     return _diagnostic_result(ctx, 'nvlink', [ctx.config['tools']['nvidia_smi'], 'nvlink', '-s'],
                               'nvidia_smi_nvlink.txt', parsers.parse_nvlink_status,
                               warn_on=lambda m: any(v > 0 for v in m.get('errors', {}).values()))
@@ -332,7 +335,7 @@ def gpudirect_rdma(ctx: RunContext) -> Result:
     probe = ctx.run([ctx.config['tools']['ib_write_bw'], '--help'], mock_fixture='ib_write_bw_help.txt')
     if module.skipped or probe.skipped:
         return Result('gpudirect_rdma', 'SKIP', 'dry-run')
-    loaded = bool(re.search(r'^nvidia_peermem\b', module.stdout, re.M))
+    loaded = bool(re.search(r'^nvidia_peermem\b', module.stdout, re.MULTILINE))
     supports_cuda = '--use_cuda' in (probe.stdout + probe.stderr)
     if probe.returncode == 127:
         return Result('gpudirect_rdma', 'SKIP', 'ib_write_bw unavailable', _raw=probe.stderr)
@@ -582,11 +585,13 @@ def nvbandwidth(ctx: RunContext) -> Result:
         raw.append(rr.stdout + rr.stderr)
         value = parsers.parse_nvbandwidth(rr.stdout, name)['sum_gbs']
         metrics[name + '_sum_gbs'] = value
-        if name not in sku.get('thresholds', {}):
+        threshold = sku.get('thresholds', {}).get(name)
+        if threshold is None:
             uncalibrated = True
         if value is None:
             issues.append(f'{name}: no SUM parsed')
-        elif not math.isfinite(value) or value <= 0 or value < sku.get('thresholds', {}).get(name, 0):
+        elif (not math.isfinite(value) or value <= 0 or
+              (threshold is not None and value < threshold)):
             issues.append(f'{name}: {value:.1f} GB/s below configured minimum')
     metrics['uncalibrated'] = uncalibrated
     return Result('nvbandwidth', 'SKIP' if ctx.dry_run else ('FAIL' if issues else ('WARN' if uncalibrated else 'PASS')),
@@ -640,12 +645,64 @@ def babelstream(ctx: RunContext) -> Result:
                   metrics, _raw='\n'.join(raw))
 
 
+@check('storage', category='diagnostics')
+def storage(ctx: RunContext) -> Result:
+    """Inspect the configured filesystem and optionally run read-only fio."""
+    cfg = ctx.config.get('storage', {})
+    path = cfg.get('path')
+    if not cfg.get('enabled', False) or not path:
+        return Result('storage', 'SKIP', 'storage validation is disabled or no path configured')
+    tools = ctx.config['tools']
+    commands = [
+        ([tools.get('df', 'df'), '-hT', path], 'filesystem usage'),
+        ([tools.get('xfs_info', 'xfs_info'), path], 'XFS geometry'),
+        ([tools.get('lfs', 'lfs'), 'df', '-h', path], 'Lustre capacity'),
+        ([tools.get('lfs', 'lfs'), 'getstripe', path], 'Lustre striping'),
+    ]
+    raw, unavailable, failures = [], [], []
+    for cmd, label in commands:
+        rr = ctx.run(cmd, timeout=cfg.get('timeout_s', 1800))
+        raw.append(f'$ {" ".join(cmd)}\n{rr.stdout}{rr.stderr}')
+        if rr.skipped:
+            return Result('storage', 'SKIP', 'dry-run', _raw='\n'.join(raw))
+        if rr.returncode == 127:
+            unavailable.append(label)
+        elif rr.returncode:
+            # xfs_info/lfs are filesystem-specific; absence is informational,
+            # while df failure means the configured path is unusable.
+            (failures if label == 'filesystem usage' else unavailable).append(label)
+    if cfg.get('benchmark', False):
+        benchmark_file = cfg.get('benchmark_file')
+        if not benchmark_file:
+            unavailable.append('fio benchmark_file')
+        else:
+            fio = [tools.get('fio', 'fio'), '--name=gputest-read', '--filename=' + benchmark_file,
+                   '--rw=read', '--readonly', '--direct=1', '--group_reporting']
+            rr = ctx.run(fio, timeout=cfg.get('timeout_s', 1800))
+            raw.append(f'$ {" ".join(fio)}\n{rr.stdout}{rr.stderr}')
+            if rr.returncode == 127:
+                unavailable.append('fio')
+            elif rr.returncode:
+                failures.append('fio benchmark')
+    metrics = {'path': path, 'unavailable': unavailable, 'failures': failures,
+               'benchmark': bool(cfg.get('benchmark', False))}
+    if failures:
+        status, message = 'FAIL', 'storage commands failed: ' + ', '.join(failures)
+    elif unavailable:
+        status, message = 'WARN', 'storage inventory incomplete: ' + ', '.join(unavailable)
+    else:
+        status, message = 'PASS', 'filesystem inventory collected'
+    return Result('storage', status, message, metrics, _raw='\n'.join(raw))
+
+
 @check('dcgmi', category='diagnostics')
 def dcgmi(ctx: RunContext) -> Result:
     """Run profile-selected DCGM JSON diagnostics, retaining individual results."""
     cfg = ctx.config['dcgmi']
     profile = ctx.config.get('_profile', 'standard')
-    level = cfg['profile_levels'][profile]
+    level = cfg['profile_levels'].get(profile)
+    if level is None:
+        level = cfg['profile_levels'][profile.rsplit('_', 1)[-1]]
     rr = ctx.run([ctx.config['tools']['dcgmi'], 'diag', '-r', str(level), '-j'],
                  timeout=cfg['timeout_s'], mock_fixture=f'dcgmi_r{level}.txt')
     problem = _command_problem('dcgmi', rr)

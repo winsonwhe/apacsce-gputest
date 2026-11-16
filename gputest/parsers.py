@@ -50,9 +50,9 @@ def parse_pcie_link(text: str) -> dict:
 
 def parse_nvlink_status(text: str) -> dict:
     """Parse nvidia-smi nvlink -s state and error counters."""
-    links = re.findall(r'Link\s+(\d+)\s*:\s*(\w+)', text, re.I)
+    links = re.findall(r'Link\s+(\d+)\s*:\s*(\w+)', text, re.IGNORECASE)
     errors = {}
-    for m in re.finditer(r'(?:link\s*)?(\d+)[^\n]*(?:error|errors)\s*[:=]\s*(\d+)', text, re.I):
+    for m in re.finditer(r'(?:link\s*)?(\d+)[^\n]*(?:error|errors)\s*[:=]\s*(\d+)', text, re.IGNORECASE):
         errors[m[1]] = int(m[2])
     return {'links': [{'index': int(i), 'state': s.upper()} for i, s in links],
             'active_count': sum(s.upper() in ('UP', 'ACTIVE') for _, s in links),

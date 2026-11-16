@@ -172,7 +172,10 @@ class RunContext:
             return future.result(), client_result
 
     def burn_duration_s(self):
-        profile = self.config.get('_profile', 'standard').removeprefix('a10_')
+        profile = self.config.get('_profile', 'standard')
+        # Per-SKU aliases (for example h100_standard) share the base duration.
+        if profile.rsplit('_', 1)[-1] in {'quick', 'standard', 'full'}:
+            profile = profile.rsplit('_', 1)[-1]
         return self.config['profile_settings'][profile]['burn_duration_s']
 
     def sku_config(self) -> dict:
