@@ -29,7 +29,8 @@ def test_parsers_for_systems_and_installed_packages():
 def test_version_threshold_and_mock(tmp_path):
     ctx = context(tmp_path, mock=True)
     result = run_checks(['oca_version'], ctx)[0]
-    assert result.status == 'WARN' and result.metrics['versions']['rpm'] == '1.50.0-1'
+    assert ctx.config['oca_version']['min_version'] == '1.64.0'
+    assert result.status == 'FAIL' and result.metrics['versions']['rpm'] == '1.50.0-1'
     ctx.config['oca_version']['min_version'] = '1.49'
     assert run_checks(['oca_version'], ctx)[0].status == 'PASS'
     ctx.config['oca_version']['min_version'] = '1.51'

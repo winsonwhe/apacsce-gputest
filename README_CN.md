@@ -41,7 +41,7 @@ python3 -m ruff check .
 
 模拟运行只需要 Python、PyYAML 和项目测试工具。实际硬件检查需要 GPU 主机依赖。需要构建基准测试源码时，还需要 `git`、`make`、CMake 和 `nvcc`。
 
-设置 `build_if_missing: true` 后，本地主机可在缺少源码时克隆并构建 gpu-burn、nvbandwidth 和 BabelStream，但不会安装系统软件包。SSH 目标主机上的可执行文件须提前部署到相同的绝对路径；gpu-burn 的 `compare.ptx` 须与可执行文件位于同一目录。根据 [NVIDIA GPU 表](https://developer.nvidia.com/cuda-gpus)，B300/GB300 的计算能力为 10.3（`COMPUTE=103`、`sm_103`）。
+设置 `build_if_missing: true` 后，本地主机可在缺少源码时克隆并构建 gpu-burn、nvbandwidth 和 BabelStream，但不会安装系统软件包。SSH 目标主机上的可执行文件须提前部署到相同的绝对路径；gpu-burn 的 `compare.ptx` 须与可执行文件位于同一目录。
 
 ## 快速开始
 
@@ -60,7 +60,36 @@ python3 -m gputest.cli run --sku gb300 --profile quick
 python3 -m gputest.cli run --sku gb300 --profile standard --nodes n1,n2
 ```
 
-`--nodes` 指定 SSH 主机。各主机的预检、burn、nvbandwidth、BabelStream 和 DCGM 在有限数量的并行工作进程中执行；RDMA 使用前两台主机，NCCL 从所列候选主机中选择。不指定 `--nodes` 时，单主机检查在本地运行，多主机检查标记为 SKIP。`--tests CHECK,CHECK` 覆盖配置组合中的检查列表，但 burn 时长和 DCGM 级别仍由 `--profile` 决定。`--gpu-count` 可覆盖配置的 GPU 数量。请使用独占或空闲的 GPU 主机。
+可以使用 IP 地址或 SSH 主机名指定节点，重复使用 `--node`、使用逗号分隔的 `--nodes`，或者通过主机文件指定：
+
+```bash
+python3 -m gputest.cli run --sku gb300 --node 192.0.2.10 --node alice@192.0.2.11 --user opc --dry-run
+python3 -m gputest.cli run --sku gb300 --nodes 192.0.2.10,192.0.2.11 --dry-run
+python3 -m gputest.cli run --sku gb300 --hostfile hosts.txt --user opc --dry-run
+```
+
+`hosts.txt` 可以为每台主机分别指定 SSH 用户：
+
+```text
+# 每台主机可以使用不同的 SSH 用户
+opc@192.0.2.10
+ubuntu@192.0.2.11
+admin@192.0.2.12
+```
+
+也可以省略部分主机的用户名，使用命令中 `--user` 指定的默认用户：
+
+```text
+192.0.2.10
+192.0.2.11
+ubuntu@192.0.2.12
+```
+
+使用 `--user opc` 时，前两台主机以 `opc` 登录，第三台以 `ubuntu` 登录。文件支持每行一个或多个主机，以逗号或空格分隔，`#` 后为注释；每台主机只能出现一次。`setup-ssh` 也支持这些主机选择选项。不指定主机选择选项时在本地运行。
+
+基于 MPI 的 NCCL 和多节点 nvbandwidth 还需要在启动节点的 SSH 配置中，为每台主机或 SSH 别名设置对应的 `User`；`--user` 和 `user@host` 控制 gputest 自身的 SSH 连接，不会传递给 MPI。主机文件和启动节点的 SSH 配置应使用相同的名称或别名，并确保启动节点可免密连接其他主机。IPv6 MPI 目标请使用 MPI 安装支持的 SSH 别名。IMEX 成员检查要求所选主机名称与 IMEX 清单一致。
+
+`--nodes` 指定 SSH 主机。各主机的预检、burn、nvbandwidth、BabelStream 和 DCGM 在有限数量的并行工作进程中执行；RDMA 使用前两台主机，NCCL 从所列候选主机中选择。不指定主机选择选项时，单主机检查在本地运行，多主机检查标记为 SKIP。`--tests CHECK,CHECK` 覆盖配置组合中的检查列表，但 burn 时长和 DCGM 级别仍由 `--profile` 决定。`--gpu-count` 可覆盖配置的 GPU 数量。请使用独占或空闲的 GPU 主机。
 
 控制端、启动端和其他主机之间需要可信的 SSH 密钥和 known_hosts。`setup-ssh --nodes n1,n2 --dry-run` 可预览可选的密钥配置，但不会建立完整的主机互联。使用 `--tests ssh_connectivity` 验证站点 SSH 策略和密钥。所有外部命令均通过统一的执行助手运行，支持超时、原始日志、模拟和预览；远端命令还在目标主机上使用 GNU timeout，以限制 SSH 断开后负载的运行时间。
 
@@ -132,7 +161,7 @@ python3 -m gputest.cli run --sku gb300 --profile standard --nodes n1,n2
 
 `nvbandwidth.cuda_arch` 目前只列出 A10、B300 和 GB300；其他 SKU 即使已安装二进制文件，也需先在 `config.yaml` 中添加架构。GB300 配置了 `nvlink: true`；B300 的部署相关 NVLink 行为尚待验证，因此跳过。多平面 RDMA 的 perftest 命令加上配置的 `ip vrf exec <vrf> numactl -N <node>` 前缀，并使用配置的 IPv6/GID 选项。
 
-`oca_version` 检查每台选定主机的 Oracle Cloud Agent 包版本：读取 `/etc/os-release`，在 Debian/Ubuntu 优先使用 `dpkg-query` 和 snap，在 Oracle Linux/RHEL 系列优先使用 `rpm`，也会探测其他包管理器。检查记录所有检测到的版本和原始输出，默认在所有配置组合中启用；设置 `oca_version.enabled: false` 可关闭。仅在部署环境有认可的最低版本时，配置带引号的数字 `oca_version.min_version`。未配置最低版本或未检测到包时报告 WARN。比较只接受数字版本核心及可选的数字软件包发行号；epoch、预发布和其他后缀无法比较，报告 WARN。该检查不验证服务或插件健康状态。TODO(verify)：在实际 OCI 镜像上确认包名和查询输出；自定义或非软件包安装可能需要额外检测。
+`oca_version` 检查每台选定主机的 Oracle Cloud Agent 包版本：读取 `/etc/os-release`，在 Debian/Ubuntu 优先使用 `dpkg-query` 和 snap，在 Oracle Linux/RHEL 系列优先使用 `rpm`，也会探测其他包管理器。检查记录所有检测到的版本和原始输出，默认在所有配置组合中启用；设置 `oca_version.enabled: false` 可关闭。最低版本配置为 `1.64.0`，可通过带引号的数字 `oca_version.min_version` 调整。未配置最低版本或未检测到包时报告 WARN。比较只接受数字版本核心及可选的数字软件包发行号；epoch、预发布和其他后缀无法比较，报告 WARN。该检查不验证服务或插件健康状态。TODO(verify)：在实际 OCI 镜像上确认包名和查询输出；自定义或非软件包安装可能需要额外检测。
 
 ## 配置组合
 

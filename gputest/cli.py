@@ -5,6 +5,7 @@ from __future__ import annotations
 import argparse
 import datetime
 import json
+import re
 import sys
 from pathlib import Path
 
@@ -28,6 +29,51 @@ from gputest.core import (
 # ---------------------------------------------------------------------------
 # helpers
 # ---------------------------------------------------------------------------
+
+def _node_selection(args, *, required=False):
+    """Read SSH targets from repeated options and a plain-text host file."""
+    entries = []
+    for value in getattr(args, 'nodes', None) or []:
+        entries.extend(re.split(r'[,\s]+', value.strip()))
+    hostfile = getattr(args, 'hostfile', None)
+    if hostfile:
+        try:
+            for line in Path(hostfile).read_text().splitlines():
+                entries.extend(re.split(r'[,\s]+', line.split('#', 1)[0].strip()))
+        except OSError as exc:
+            raise ValueError(f'cannot read hostfile {hostfile}: {exc}') from exc
+    nodes, users = [], {}
+    default_user = getattr(args, 'user', None)
+    if default_user and not re.fullmatch(r'[A-Za-z0-9_][A-Za-z0-9_.-]*', default_user):
+        raise ValueError('invalid SSH user')
+    for entry in filter(None, entries):
+        user, sep, host = entry.partition('@')
+        if not sep:
+            host, user = user, default_user
+        elif not user:
+            raise ValueError(f'invalid SSH target: {entry}')
+        if (not host or host.startswith('-') or '@' in host
+                or not re.fullmatch(r'[A-Za-z0-9_.:%-]+', host)
+                or (user and not re.fullmatch(r'[A-Za-z0-9_][A-Za-z0-9_.-]*', user))):
+            raise ValueError(f'invalid SSH target: {entry}')
+        if host in nodes:
+            raise ValueError(f'duplicate host: {host}')
+        nodes.append(host)
+        if user:
+            users[host] = user
+    if required and not nodes:
+        raise ValueError('provide at least one host with --nodes, --node, or --hostfile')
+    if (hostfile or getattr(args, 'nodes', None)) and not nodes:
+        raise ValueError('host selection is empty')
+    return nodes, users
+
+
+def _add_host_options(parser):
+    parser.add_argument('--nodes', '--node', action='append', metavar='HOST[,HOST...]',
+                        help='SSH targets; repeat or separate with commas or spaces. Optional user@host.')
+    parser.add_argument('--hostfile', help='Text file of SSH targets, one or more per line; # starts a comment.')
+    parser.add_argument('--user', help='Default SSH user; user@host overrides it.')
+
 
 def _detect_network_mode(config: dict, ctx: RunContext | None = None) -> str:
     """Detect on target hosts through run(), respecting dry-run and mock mode."""
@@ -108,14 +154,13 @@ def cmd_run(args, config: dict) -> None:
     run_id = datetime.datetime.now().strftime("%Y%m%d-%H%M%S")
     results_dir = Path(getattr(args, "output_dir", None) or (Path("results") / f"run-{run_id}"))
 
-    nodes = []
-    if getattr(args, "nodes", None):
-        nodes = [n.strip() for n in args.nodes.split(",") if n.strip()]
+    nodes, users = _node_selection(args)
 
     ctx = RunContext(
         config=config,
         sku=args.sku,
         nodes=nodes,
+        ssh_users=users,
         dry_run=getattr(args, "dry_run", False),
         mock=getattr(args, "mock", False),
         network_mode=config["network"]["fallback_mode"],
@@ -167,14 +212,12 @@ def cmd_run(args, config: dict) -> None:
 
 def cmd_setup_ssh(args, config: dict) -> None:
     """Provision keys using the shared bounded command helper; all writes honor dry-run."""
-    nodes = [n.strip() for n in args.nodes.split(',') if n.strip()]
-    if not nodes:
-        raise ValueError('--nodes must contain at least one host')
+    nodes, users = _node_selection(args, required=True)
     dry_run = args.dry_run
     tools = config['tools']
     ssh_dir = Path.home() / '.ssh'
     key = ssh_dir / 'id_ed25519'
-    targets = [f'{args.user}@{n}' if args.user else n for n in nodes]
+    targets = [f'{users[n]}@{n}' if n in users else n for n in nodes]
     failed = []
 
     def execute(cmd):
@@ -271,8 +314,7 @@ def build_parser() -> argparse.ArgumentParser:
                        help="Override expected GPU count (useful for partial A10 hosts).")
     run_p.add_argument("--tests", metavar="CHECK,CHECK,...",
                        help="Override profile: run only these checks.")
-    run_p.add_argument("--nodes", metavar="HOST,HOST,...",
-                       help="Comma-separated SSH hosts (omit for localhost only).")
+    _add_host_options(run_p)
     run_p.add_argument("--node-count", type=_positive_int,
                        help="Select this many NCCL nodes from --nodes using GMF placement.")
     run_p.add_argument("--output-dir", help="Directory for JSON, Markdown and raw output.")
@@ -299,10 +341,7 @@ def build_parser() -> argparse.ArgumentParser:
         "setup-ssh",
         help="Configure passwordless SSH between this host and --nodes (required for NCCL).",
     )
-    ssh_p.add_argument("--nodes", required=True, metavar="HOST,HOST,...",
-                       help="Comma-separated list of remote hosts.")
-    ssh_p.add_argument("--user", default=None,
-                       help="Remote SSH user (default: current user).")
+    _add_host_options(ssh_p)
     ssh_p.add_argument("--dry-run", action="store_true",
                        help="Print commands without executing them.")
     ssh_p.add_argument("--config", default="config.yaml",
@@ -328,7 +367,10 @@ def main() -> None:
         "report": cmd_report,
         "setup-ssh": cmd_setup_ssh,
     }
-    status = dispatch[args.command](args, config)
+    try:
+        status = dispatch[args.command](args, config)
+    except ValueError as exc:
+        parser.error(str(exc))
     if status:
         sys.exit(status)
 

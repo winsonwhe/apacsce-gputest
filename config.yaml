@@ -403,7 +403,7 @@ oca_version:
   enabled: true
   os_release_path: /etc/os-release
   timeout_s: 30
-  min_version: null  # Optional quoted numeric version, e.g. '1.50.0'; no assumed OCI minimum.
+  min_version: '1.64.0'
 
 # All optional checks below are disabled until explicitly configured.
 nic_inventory:

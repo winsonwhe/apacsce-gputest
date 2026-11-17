@@ -59,8 +59,7 @@ Local gpu-burn, nvbandwidth and BabelStream can clone/build missing sources when
 `build_if_missing: true`. Git, make/CMake and nvcc must already exist; system
 packages are never installed. For SSH targets, provision binaries beforehand at
 identical absolute paths on every host. gpu-burn needs `compare.ptx` beside its
-binary. B300/GB300 compute capability is 10.3 (`COMPUTE=103`, `sm_103`), per
-[NVIDIA's GPU table](https://developer.nvidia.com/cuda-gpus).
+binary. 
 
 ## Quick start
 
@@ -79,9 +78,48 @@ python3 -m gputest.cli run --sku gb300 --profile quick
 python3 -m gputest.cli run --sku gb300 --profile standard --nodes n1,n2
 ```
 
+You can select hosts by IP address or SSH hostname, repeat the option, or use a
+host file. `--user` sets the default SSH login; a `user@host` entry overrides it:
+
+```bash
+python3 -m gputest.cli run --sku gb300 --node 192.0.2.10 --node alice@192.0.2.11 --user opc --dry-run
+python3 -m gputest.cli run --sku gb300 --nodes 192.0.2.10,192.0.2.11 --dry-run
+python3 -m gputest.cli run --sku gb300 --hostfile hosts.txt --user opc --dry-run
+```
+
+For example, `hosts.txt` can specify a different user on each host:
+
+```text
+# Each host can use a different SSH user
+opc@192.0.2.10
+ubuntu@192.0.2.11
+admin@192.0.2.12
+```
+
+Alternatively, omit the user for hosts that use the default from `--user`:
+
+```text
+192.0.2.10
+192.0.2.11
+ubuntu@192.0.2.12
+```
+
+With `--user opc`, the first two hosts use `opc` and the third uses `ubuntu`.
+The host file accepts one or more comma- or whitespace-separated targets per
+line, with `#` comments. The same options work with `setup-ssh`. Each host may
+appear only once. Omit host options to run locally.
+
+For MPI-based NCCL and multi-node nvbandwidth, configure SSH on the launcher
+host with the appropriate `User` for each host or SSH alias; `--user` and
+`user@host` control gputest's SSH connections but are not passed to MPI.
+Use the same host names or aliases in the host file and launcher SSH config,
+and ensure launcher-to-peer authentication works. For IPv6 MPI targets use
+SSH aliases supported by the MPI installation. IMEX membership checks also
+require the selected host names to match the IMEX inventory.
+
 `--nodes` lists SSH hosts. Per-host preflights, burn, nvbandwidth, BabelStream and
 DCGM run on all supplied hosts in bounded parallel workers. RDMA uses the first
-two hosts; NCCL selects from the supplied candidates. Without `--nodes`, per-host
+two hosts; NCCL selects from the supplied candidates. Without host selection options, per-host
 checks run locally and multi-host checks SKIP. `--tests CHECK,CHECK` overrides the
 profile's check list; its burn duration and DCGM level still follow `--profile`.
 `--gpu-count` overrides the configured GPU count. Use exclusive/idle GPU hosts.
@@ -115,7 +153,7 @@ The Category column retains the CLI registry category.
 | Category | Check | Test content | Main command(s) | Target SKUs / conditions |
 |---|---|---|---|---|
 | preflight | `software_versions` | Driver, firmware and installed software versions | `nvidia-smi --query-gpu=driver_version,vbios_version --format=csv,noheader`; `nvcc --version`; `ofed_info -s`; `dcgmi --version`; `ibv_devinfo --version`; `nvidia-fabricmanager --version` | All |
-| preflight | `oca_version` | Oracle Cloud Agent package version on each host; optional minimum version | `cat /etc/os-release`; `rpm -q`, `dpkg-query`, and `snap list` for `oracle-cloud-agent` | All; Linux package installations; missing or uncomparable versions WARN |
+| preflight | `oca_version` | Oracle Cloud Agent package version on each host; configurable minimum version | `cat /etc/os-release`; `rpm -q`, `dpkg-query`, and `snap list` for `oracle-cloud-agent` | All; Linux package installations; missing or uncomparable versions WARN |
 | preflight | `numa_topology` | CPU and memory NUMA topology | `numactl --hardware` | All |
 | preflight | `ssh_connectivity` | SSH access and launcher-to-peer connectivity | `hostname` over SSH; `ssh -o BatchMode=yes -o ConnectTimeout=10 -- <peer> hostname` from launcher | All; multi-host |
 
@@ -189,9 +227,9 @@ host's `/etc/os-release`, prefers `dpkg-query` and snap on Debian/Ubuntu and
 `rpm` on Oracle Linux/RHEL-family systems, and also probes the other package
 managers to cover alternative installations. It records all detected package
 versions and the raw output. It is enabled in all profiles; set
-`oca_version.enabled: false` to disable it. Configure a quoted numeric
-`oca_version.min_version` only when the deployment has an approved minimum.
-Without one, or if no package is detected, the check reports WARN. Comparison
+`oca_version.enabled: false` to disable it. The configured minimum version is
+`1.64.0`; set `oca_version.min_version` to another quoted numeric version if
+needed. Without a minimum, or if no package is detected, the check reports WARN. Comparison
 uses the numeric version core and accepts an optional numeric package release;
 epochs, prereleases and other suffixes are reported as uncomparable (WARN), not
 assumed compliant. This checks package versions, not agent service or plugin

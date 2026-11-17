@@ -130,7 +130,7 @@ def ssh_connectivity(ctx: RunContext) -> Result:
     tools = ctx.config['tools']
     jobs = [{'cmd': [tools['hostname']], 'node': n, 'mock_fixture': 'ssh_hostname.txt',
              'timeout': ctx.config['executor']['timeout_s']} for n in ctx.nodes]
-    jobs += [{'cmd': [tools['ssh'], '-o', 'BatchMode=yes', '-o', 'ConnectTimeout=10', '--', n,
+    jobs += [{'cmd': [tools['ssh'], '-o', 'BatchMode=yes', '-o', 'ConnectTimeout=10', '--', ctx.ssh_target(n),
                       tools['hostname']], 'node': ctx.nodes[0], 'mock_fixture': 'ssh_hostname.txt',
               'timeout': ctx.config['executor']['timeout_s']} for n in ctx.nodes[1:]]
     results = ctx.run_parallel(jobs)

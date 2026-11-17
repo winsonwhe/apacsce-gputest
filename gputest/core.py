@@ -104,6 +104,7 @@ class RunContext:
     config: dict
     sku: str
     nodes: list[str]          # empty list = localhost only
+    ssh_users: dict[str, str] = field(default_factory=dict)
     dry_run: bool = False
     mock: bool = False
     network_mode: str = "single_plane"
@@ -112,6 +113,10 @@ class RunContext:
     node_count: int | None = None
     target_node: str | None = None
     results_dir: Path = field(default_factory=lambda: Path("results/current"))
+
+    def ssh_target(self, node: str | None) -> str | None:
+        user = self.ssh_users.get(node)
+        return f'{user}@{node}' if user else node
 
     def run(
         self,
@@ -126,7 +131,7 @@ class RunContext:
     ) -> RunResult:
         return run(
             cmd,
-            node=node or self.target_node,
+            node=self.ssh_target(node or self.target_node),
             sudo=sudo,
             timeout=timeout,
             dry_run=self.dry_run,
