@@ -326,3 +326,25 @@ def test_imex_only_validates_selected_nccl_hosts(tmp_path, monkeypatch):
     result = run_checks(['nccl_allreduce'], ctx)[0]
     assert result.status == 'WARN', result.message
     assert set(service_nodes) == {'n1', 'n2'}
+
+
+@pytest.mark.parametrize('sku', list(load_config(ROOT / 'config.yaml')['skus']))
+def test_local_alltoall_for_every_sku(tmp_path, sku):
+    ctx = context(tmp_path, sku=sku)
+    ctx.nodes = []
+    assert 'nccl_local_alltoall' in ctx.config['profiles'].get(f'{sku}_full', ctx.config['profiles']['full'])
+    result = run_checks(['nccl_local_alltoall'], ctx)[0]
+    assert result.status == 'WARN'
+    assert result.metrics['gpu_count'] == ctx.sku_config()['gpu_count']
+    assert 'alltoall_perf' in result.metrics['command']
+    assert result.metrics['busbw_gbs'] == 680.70
+    ctx.config['nccl']['local_alltoall_threshold_gbs'] = 700
+    assert run_checks(['nccl_local_alltoall'], ctx)[0].status == 'FAIL'
+
+
+def test_local_alltoall_dry_run(tmp_path):
+    ctx = context(tmp_path, dry_run=True)
+    ctx.nodes = []
+    result = run_checks(['nccl_local_alltoall'], ctx)[0]
+    assert result.status == 'SKIP'
+    assert 'alltoall_perf' in result.metrics['command']

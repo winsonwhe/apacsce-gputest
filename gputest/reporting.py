@@ -54,6 +54,10 @@ def annotate(result, ctx):
                 continue
             add(metric, mode[metric], rule, f'rdma_perf.{ctx.network_mode}.{metric}',
                 mode.get('threshold_source', 'config default'))
+    elif name.startswith('nccl_local_'):
+        key = 'local_threshold_gbs' if name == 'nccl_local_allreduce' else 'local_alltoall_threshold_gbs'
+        add('largest-size in-place busbw (GB/s)', result.metrics.get('threshold_gbs'), '>=',
+            f'nccl.{key}')
     elif name.startswith('nccl_'):
         value = result.metrics.get('busbw_min_gbs')
         source = 'PDF example' if 'example reference' in result.metrics.get('threshold_source', '') else 'config default'

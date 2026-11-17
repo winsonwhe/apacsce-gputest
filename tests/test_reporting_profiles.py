@@ -41,7 +41,7 @@ def test_profile_effective_commands_and_membership(tmp_path, capsys, profile, du
         assert {'babelstream', 'nvbandwidth', 'dcgmi', 'rdma_perf'} <= set(ctx.config['profiles'][profile])
         assert not any(n.startswith('nccl') for n in ctx.config['profiles'][profile])
     if profile == 'full':
-        assert {'nccl_allreduce', 'nccl_alltoall', 'imex'} <= set(ctx.config['profiles'][profile])
+        assert {'nccl_local_allreduce', 'nccl_local_alltoall', 'nccl_allreduce', 'nccl_alltoall', 'imex'} <= set(ctx.config['profiles'][profile])
 
 
 def test_all_profiles_have_registered_checks(tmp_path):

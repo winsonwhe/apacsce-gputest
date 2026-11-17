@@ -1,5 +1,7 @@
 # gputest: GPU validation toolkit
 
+[中文版](README_CN.md)
+
 Validate OCI NVIDIA A10, A100, H100, H200, L40S, B200, GB200, B300 and GB300
 hosts with preflight checks, sustained GPU load, memory bandwidth, DCGM, two-host
 RDMA and multi-host NCCL. Python 3.10+,
@@ -10,8 +12,13 @@ standard library plus PyYAML; no plugin framework or GPU dependency for mock run
 ```bash
 python3 -m venv .venv
 source .venv/bin/activate
+# oracle linux
+sudo dnf install -y python3-pip
+
+# ubuntu
+sudo apt install -y python3-pip
+
 python3 -m pip install -r requirements.txt
-# Development / CPU-only validation:
 python3 -m pip install pytest ruff
 python3 -m pytest -q
 python3 -m ruff check .
@@ -162,6 +169,7 @@ The Category column retains the CLI registry category.
 
 | Category | Check | Test content | Main command(s) | Target SKUs / conditions |
 |---|---|---|---|---|
+| nccl | `nccl_local_alltoall` | Single-host NCCL all-to-all bandwidth | `alltoall_perf -b 8 -e 8G -f 2 -g <gpu-count>` | All; local host |
 | nccl | `nccl_local_allreduce` | Single-host NCCL all-reduce bandwidth | `all_reduce_perf -b 8 -e 8G -f 2 -g <gpu-count>` | All; local host |
 | preflight | `placement` | GPU memory fabric and deployment-group placement | IMDS `curl` as in `network_mode`; select hosts from returned or configured inventory | All; multi-host |
 | preflight | `imex` | IMEX service and configured multi-host membership | `cat /etc/nvidia-imex/nodes_config.cfg`; `systemctl is-active nvidia-imex`; IMDS `curl` | GB200, GB300; multi-host |
@@ -250,9 +258,9 @@ fallback; pass `--network-mode` to preview the desired commands.
   single-plane HCA names are discovered and must match across selected hosts.
   Both in-place and out-of-place busbw at the requested largest size must meet
   the floor. Command errors, missing output and validation errors fail.
-- `nccl_local_allreduce`: run single-host all-reduce separately from the
-  multi-host network test. Its threshold is intentionally unset until a
-  per-SKU, per-GPU-count baseline is collected.
+- `nccl_local_allreduce` / `nccl_local_alltoall`: run single-host collectives
+  separately from the multi-host network test. Their independent thresholds are
+  intentionally unset until per-SKU, per-GPU-count baselines are collected.
 - `storage`: optionally collect `df`, XFS/Lustre capacity and striping, and run
   a read-only `fio` check against an existing file. It is disabled unless a
   dedicated `storage.path` is configured, so GPU acceptance remains non-invasive.

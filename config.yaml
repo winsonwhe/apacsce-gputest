@@ -10,7 +10,7 @@ profiles:
                clocks_throttle, software_versions, oca_version, gpu_topology, fabricmanager, numa_topology,
                numa_affinity, rdma_iface, gpudirect_rdma, ssh_connectivity, placement, imex, gpu_burn, nvbandwidth,
                babelstream, dcgmi, rdma_perf, rdma_read, rdma_send, gdr_perf,
-               nccl_local_allreduce, nccl_allreduce, nccl_alltoall,
+               nccl_local_allreduce, nccl_local_alltoall, nccl_allreduce, nccl_alltoall,
                storage, nic_inventory, network_ping, tcp_bandwidth, lustre_client,
                filesystem_perf, object_storage, object_upload]
   a10_quick: *quick
@@ -235,6 +235,7 @@ nccl:
   largest_size_bytes: 17179869184
   local_args: [-b, 8, -e, 8G, -f, '2']
   local_threshold_gbs: null  # TODO(verify): calibrate per SKU and GPU count
+  local_alltoall_threshold_gbs: null  # TODO(verify): calibrate per SKU and GPU count
   baseline_threshold_pct: 80
   # Optional example busbw GB/s by exact node count (2/16/32/64/80).
   # Leave empty until calibrated for the mode, SKU, and requested 16 GiB size.
