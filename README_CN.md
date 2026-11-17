@@ -8,28 +8,30 @@
 
 项目采用扁平的验证流程：CLI 从 `config.yaml` 读取配置组合，`gputest`
 注册并执行检查，每项检查都会保存原始命令输出，并生成 `PASS`、`WARN`、
-`FAIL` 或 `SKIP` 状态。主要目录如下：
+`FAIL` 或 `SKIP` 状态。
 
-| 目录 | 作用 |
-|---|---|
-| `gputest/` | 应用源码，包含 CLI、检查注册和命令执行、解析器、本地检查、多主机检查、可选基础设施检查以及报告生成。 |
-| `tests/` | Pytest 测试，覆盖解析器、检查编排、主机选择、配置组合、报告和模拟模式；无需 GPU 即可运行。 |
-| `fixtures/` | 模拟运行和解析器测试使用的命令输出及 JSON 样例。 |
-| `docs/` | 硬件和部署说明，补充 README 中的使用文档。 |
-| `results/` | 生成的验证报告和原始命令日志；配置输出位置后，每次运行可在此创建带时间戳的子目录。 |
+```text
+.
+├── config.yaml                 # SKU、配置组合、阈值、工具、网络和 NCCL 设置
+├── requirements.txt            # 运行时 Python 依赖
+├── gputest/                    # 应用源码
+│   ├── cli.py                  # 命令行入口
+│   ├── core.py                 # 结果、检查注册、命令执行和节点执行
+│   ├── checks.py               # 本地 GPU 和系统验证检查
+│   ├── multihost_checks.py     # SSH、RDMA 和 NCCL 检查
+│   ├── optional_checks.py      # 可选的网络和存储检查
+│   ├── parsers.py              # 命令输出的纯解析器
+│   └── reporting.py            # 可读和机器可读的报告
+├── tests/                      # Pytest 测试；无需 GPU 即可运行
+├── fixtures/                   # 模拟命令输出和解析器测试样例
+├── docs/                       # 硬件和部署说明
+├── results/                    # 生成的报告和原始命令日志
+├── README.md                   # 英文文档
+└── README_CN.md                # 中文文档
+```
 
-仓库根目录中的主要配置和支持文件如下：
-
-- `config.yaml`：定义 SKU 设置、配置组合、阈值、工具路径、网络模式和 NCCL 环境变量。
-- `README.md`：英文安装、使用、检查和部署说明。
-- `README_CN.md`：中文安装、使用和检查说明。
-- `requirements.txt`：运行时 Python 依赖。
-
-`gputest/` 中，`cli.py` 是命令行入口；`core.py` 提供结果模型、检查注册、
-外部命令执行和节点执行；`checks.py` 包含本地验证检查；
-`multihost_checks.py` 包含 SSH、RDMA 和 NCCL 检查；`optional_checks.py` 包含
-可选的网络和存储检查；`parsers.py` 将命令文本转换为结构化数据；
-`reporting.py` 负责生成可读和机器可读的报告。
+CLI 通过 `core.py` 调用检查；检查使用统一的命令执行器，必要时将命令输出
+交给 `parsers.py`，再把结果交由 `reporting.py` 生成报告。
 
 ## 安装
 

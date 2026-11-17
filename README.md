@@ -11,30 +11,31 @@ standard library plus PyYAML; no plugin framework or GPU dependency for mock run
 
 The project keeps the validation flow flat: the CLI reads a profile from
 `config.yaml`, `gputest` registers and runs checks, and each check stores its raw
-command output together with a `PASS`, `WARN`, `FAIL` or `SKIP` result. The main
-directories are:
+command output together with a `PASS`, `WARN`, `FAIL` or `SKIP` result.
 
-| Directory | Purpose |
-|---|---|
-| `gputest/` | Application source code. It contains the CLI, check registry and command runner, parsers, local and multi-host checks, optional infrastructure checks, and report generation. |
-| `tests/` | Pytest coverage for parsers, check orchestration, host selection, profiles, reporting and mock-mode behavior. These tests run without GPU hardware. |
-| `fixtures/` | Representative command output and JSON samples used by mock runs and parser tests. |
-| `docs/` | Detailed hardware and deployment notes that complement the user-facing README. |
-| `results/` | Generated validation reports and raw command logs. New runs create a timestamped subdirectory here when the output location is configured accordingly. |
+```text
+.
+├── config.yaml                 # SKUs, profiles, thresholds, tools, network and NCCL settings
+├── requirements.txt            # Runtime Python dependency
+├── gputest/                    # Application source code
+│   ├── cli.py                  # Command-line entry point
+│   ├── core.py                 # Results, check registry, command runner and node execution
+│   ├── checks.py               # Local GPU and system validation checks
+│   ├── multihost_checks.py     # SSH, RDMA and NCCL checks
+│   ├── optional_checks.py      # Opt-in network and storage checks
+│   ├── parsers.py              # Pure parsers for command output
+│   └── reporting.py            # Human-readable and machine-readable reports
+├── tests/                      # Pytest tests; runnable without GPU hardware
+├── fixtures/                   # Mock command output and parser-test samples
+├── docs/                       # Hardware and deployment notes
+├── results/                    # Generated reports and raw command logs
+├── README.md                   # English documentation
+└── README_CN.md                # Chinese documentation
+```
 
-The repository-level configuration and support files are organized as follows:
-
-- `config.yaml` defines SKU settings, profiles, thresholds, tool paths, network
-  modes and NCCL environment variables.
-- `README.md` documents installation, usage, checks and deployment guidance.
-- `requirements.txt` lists the runtime Python dependency.
-
-Within `gputest/`, `cli.py` is the command-line entry point; `core.py` provides
-the result model, check registry, external-command runner and node execution;
-`checks.py` contains local validation checks; `multihost_checks.py` contains
-SSH, RDMA and NCCL checks; `optional_checks.py` contains opt-in network and
-storage checks; `parsers.py` turns command text into structured data; and
-`reporting.py` writes human-readable and machine-readable reports.
+The CLI invokes checks through `core.py`; checks use the shared command runner,
+pass command output to `parsers.py` when needed, and send their results to
+`reporting.py`.
 
 ## Install
 
