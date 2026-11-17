@@ -211,12 +211,13 @@ def cmd_run(args, config: dict) -> None:
 
 
 def cmd_setup_ssh(args, config: dict) -> None:
-    """Provision keys using the shared bounded command helper; all writes honor dry-run."""
+    """Install one shared SSH identity and peer trust on every selected node."""
     nodes, users = _node_selection(args, required=True)
     dry_run = args.dry_run
     tools = config['tools']
     ssh_dir = Path.home() / '.ssh'
-    key = ssh_dir / 'id_ed25519'
+    key = Path(args.private_key).expanduser() if args.private_key else ssh_dir / 'id_ed25519'
+    public_key = Path(str(key) + '.pub')
     targets = [f'{users[n]}@{n}' if n in users else n for n in nodes]
     failed = []
 
@@ -224,6 +225,9 @@ def cmd_setup_ssh(args, config: dict) -> None:
         return run(cmd, dry_run=dry_run, timeout=config['executor']['setup_timeout_s'],
                    results_dir=None if dry_run else Path('results/ssh-setup'))
 
+    if not key.exists() and args.private_key and not dry_run:
+        print(f'Private key does not exist: {key}', file=sys.stderr)
+        return 1
     if not key.exists():
         if not dry_run:
             ssh_dir.mkdir(mode=0o700, parents=True, exist_ok=True)
@@ -231,30 +235,48 @@ def cmd_setup_ssh(args, config: dict) -> None:
         if rr.returncode:
             print(rr.stderr)
             return 1
+    if not public_key.exists() and not dry_run:
+        rr = execute([tools['ssh_keygen'], '-y', '-f', str(key)])
+        if rr.returncode or not rr.stdout.strip():
+            print(rr.stderr or f'cannot derive public key from {key}', file=sys.stderr)
+            return 1
+        public_key.write_text(rr.stdout.strip() + '\n')
+        public_key.chmod(0o644)
+
+    ssh_opts = ['-o', 'BatchMode=yes', '-o', 'ConnectTimeout=10',
+                '-o', 'StrictHostKeyChecking=accept-new', '-i', str(key)]
+    peer_hosts = ' '.join(n.split('@')[-1] for n in targets)
     for target in targets:
-        rr = execute([tools['ssh_copy_id'], '-i', str(key) + '.pub', target])
-        if rr.returncode:
-            failed.append(target)
+        # The bootstrap identity must already be accepted by the image.  The
+        # private key is then copied to each node so launcher-to-peer SSH uses
+        # the same identity everywhere.
+        prepare_dir = execute([tools['ssh'], *ssh_opts, '--', target,
+                               'umask 077; mkdir -p ~/.ssh; chmod 700 ~/.ssh'])
+        copy_key = execute([tools['scp'], *ssh_opts, str(key), f'{target}:.ssh/id_ed25519'])
+        copy_pub = execute([tools['scp'], *ssh_opts, str(public_key), f'{target}:.ssh/id_ed25519.pub'])
+        prepare = execute([tools['ssh'], *ssh_opts, '--', target,
+                           ("umask 077; mkdir -p ~/.ssh; chmod 700 ~/.ssh; "
+                            "cat ~/.ssh/id_ed25519.pub >> ~/.ssh/authorized_keys; "
+                            "sort -u ~/.ssh/authorized_keys -o ~/.ssh/authorized_keys; "
+                            "chmod 600 ~/.ssh/id_ed25519 ~/.ssh/id_ed25519.pub ~/.ssh/authorized_keys")])
         scan = execute([tools['ssh_keyscan'], '-H', target.split('@')[-1]])
-        fetched = execute([tools['ssh'], '-o', 'BatchMode=yes', '-o', 'ConnectTimeout=10',
-                           '--', target, 'cat ~/.ssh/id_ed25519.pub'])
-        if scan.returncode or fetched.returncode or (not dry_run and not fetched.stdout.strip()):
+        trust = execute([tools['ssh'], *ssh_opts, '--', target,
+                         (f'ssh-keyscan -H {peer_hosts} >> ~/.ssh/known_hosts; '
+                          'sort -u ~/.ssh/known_hosts -o ~/.ssh/known_hosts; '
+                          'chmod 600 ~/.ssh/known_hosts')])
+        if any(rr.returncode for rr in (prepare_dir, copy_key, copy_pub, prepare, scan, trust)):
             failed.append(target)
-        if dry_run:
-            print(f'[dry-run] append scanned host keys to {ssh_dir / "known_hosts"}')
-            print(f'[dry-run] append remote public key to {ssh_dir / "authorized_keys"}')
-            continue
-        ssh_dir.mkdir(mode=0o700, parents=True, exist_ok=True)
-        for name, text in [('known_hosts', scan.stdout), ('authorized_keys', fetched.stdout)]:
-            path = ssh_dir / name
+        if not dry_run and scan.returncode == 0 and scan.stdout.strip():
+            ssh_dir.mkdir(mode=0o700, parents=True, exist_ok=True)
+            path = ssh_dir / 'known_hosts'
             existing = path.read_text().splitlines() if path.exists() else []
-            extra = [line for line in text.splitlines() if line and line not in existing]
+            extra = [line for line in scan.stdout.splitlines() if line and line not in existing]
             if extra:
                 with path.open('a') as stream:
                     stream.write('\n'.join(extra) + '\n')
                 path.chmod(0o600)
     print('Dry-run only: no keys changed.' if dry_run else f'SSH setup failures: {sorted(set(failed))}')
-    print('Also provision launcher-to-peer SSH and trust host keys through your normal cluster process.')
+    print('All selected nodes receive the same private/public key pair and peer host keys.')
     return int(bool(failed))
 
 
@@ -344,6 +366,8 @@ def build_parser() -> argparse.ArgumentParser:
     _add_host_options(ssh_p)
     ssh_p.add_argument("--dry-run", action="store_true",
                        help="Print commands without executing them.")
+    ssh_p.add_argument("--private-key", metavar="PATH",
+                       help="Private key to install on every node; its public key must already allow bootstrap SSH.")
     ssh_p.add_argument("--config", default="config.yaml",
                        help="Path to config.yaml (default: config.yaml).")
 

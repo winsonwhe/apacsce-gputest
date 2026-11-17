@@ -7,6 +7,35 @@ hosts with preflight checks, sustained GPU load, memory bandwidth, DCGM, two-hos
 RDMA and multi-host NCCL. Python 3.10+,
 standard library plus PyYAML; no plugin framework or GPU dependency for mock runs.
 
+## Project architecture
+
+The project keeps the validation flow flat: the CLI reads a profile from
+`config.yaml`, `gputest` registers and runs checks, and each check stores its raw
+command output together with a `PASS`, `WARN`, `FAIL` or `SKIP` result. The main
+directories are:
+
+| Directory | Purpose |
+|---|---|
+| `gputest/` | Application source code. It contains the CLI, check registry and command runner, parsers, local and multi-host checks, optional infrastructure checks, and report generation. |
+| `tests/` | Pytest coverage for parsers, check orchestration, host selection, profiles, reporting and mock-mode behavior. These tests run without GPU hardware. |
+| `fixtures/` | Representative command output and JSON samples used by mock runs and parser tests. |
+| `docs/` | Detailed hardware and deployment notes that complement the user-facing README. |
+| `results/` | Generated validation reports and raw command logs. New runs create a timestamped subdirectory here when the output location is configured accordingly. |
+
+The repository-level configuration and support files are organized as follows:
+
+- `config.yaml` defines SKU settings, profiles, thresholds, tool paths, network
+  modes and NCCL environment variables.
+- `README.md` documents installation, usage, checks and deployment guidance.
+- `requirements.txt` lists the runtime Python dependency.
+
+Within `gputest/`, `cli.py` is the command-line entry point; `core.py` provides
+the result model, check registry, external-command runner and node execution;
+`checks.py` contains local validation checks; `multihost_checks.py` contains
+SSH, RDMA and NCCL checks; `optional_checks.py` contains opt-in network and
+storage checks; `parsers.py` turns command text into structured data; and
+`reporting.py` writes human-readable and machine-readable reports.
+
 ## Install
 
 ```bash
@@ -124,12 +153,25 @@ checks run locally and multi-host checks SKIP. `--tests CHECK,CHECK` overrides t
 profile's check list; its burn duration and DCGM level still follow `--profile`.
 `--gpu-count` overrides the configured GPU count. Use exclusive/idle GPU hosts.
 
-Provision trusted SSH keys/known_hosts between the controller, launcher and
-peers. `setup-ssh --nodes n1,n2 --dry-run` previews optional key provisioning;
-it does not establish a full peer mesh. Verify site SSH policy and keys using
-`--tests ssh_connectivity`. Every external command uses the same helper, with a
-timeout, raw log and mock/dry-run support. Remote commands receive a second GNU
-timeout on the target, so SSH disconnection leaves a bounded workload.
+Provision trusted SSH keys/known_hosts before running GPU tests. When the image
+already accepts the public key for a shared test identity, install that identity
+on every node with:
+
+```bash
+python3 -m gputest.cli setup-ssh \
+  --nodes 10.0.1.241,10.0.1.117 \
+  --user ubuntu \
+  --private-key ~/.ssh/gb300_shared_ed25519
+```
+
+This copies the same private/public key pair to every selected node, adds the
+public key to `authorized_keys`, and configures peer `known_hosts`. Use a
+dedicated test key because the private key is copied to all nodes. Add
+`--dry-run` to preview commands, then verify controller-to-node and
+launcher-to-peer access with `--tests ssh_connectivity`. Every external command
+uses the same helper, with a timeout, raw log and mock/dry-run support. Remote
+commands receive a second GNU timeout on the target, so SSH disconnection leaves
+a bounded workload.
 
 ## Test catalog
 

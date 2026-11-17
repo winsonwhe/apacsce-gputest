@@ -34,3 +34,16 @@ def test_setup_ssh_uses_per_host_user(tmp_path, monkeypatch, capsys):
     output = capsys.readouterr().out
     assert 'alice@host1' in output
     assert 'opc@host2' in output
+
+
+def test_setup_ssh_accepts_shared_private_key(tmp_path, monkeypatch, capsys):
+    from gputest import cli
+    key = tmp_path / 'shared_ed25519'
+    monkeypatch.setattr(cli.Path, 'home', classmethod(lambda cls: tmp_path))
+    args = build_parser().parse_args([
+        'setup-ssh', '--nodes', 'host1,host2', '--private-key', str(key), '--dry-run'
+    ])
+    cli.cmd_setup_ssh(args, cli.load_config('config.yaml'))
+    output = capsys.readouterr().out
+    assert f'-i {key}' in output
+    assert 'scp' in output

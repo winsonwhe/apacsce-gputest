@@ -509,6 +509,7 @@ tools:
   ssh_keygen: ssh-keygen
   ssh_copy_id: ssh-copy-id
   ssh_keyscan: ssh-keyscan
+  scp: scp
   cat: cat
   journalctl: journalctl
   nvcc: nvcc

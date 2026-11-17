@@ -4,6 +4,33 @@
 
 使用预检、持续 GPU 负载、内存带宽、DCGM、双主机 RDMA 和多主机 NCCL 检查，验证 OCI NVIDIA A10、A100、H100、H200、L40S、B200、GB200、B300 和 GB300 主机。项目要求 Python 3.10 及以上，运行时只依赖标准库和 PyYAML；模拟运行不需要 GPU。
 
+## 项目架构
+
+项目采用扁平的验证流程：CLI 从 `config.yaml` 读取配置组合，`gputest`
+注册并执行检查，每项检查都会保存原始命令输出，并生成 `PASS`、`WARN`、
+`FAIL` 或 `SKIP` 状态。主要目录如下：
+
+| 目录 | 作用 |
+|---|---|
+| `gputest/` | 应用源码，包含 CLI、检查注册和命令执行、解析器、本地检查、多主机检查、可选基础设施检查以及报告生成。 |
+| `tests/` | Pytest 测试，覆盖解析器、检查编排、主机选择、配置组合、报告和模拟模式；无需 GPU 即可运行。 |
+| `fixtures/` | 模拟运行和解析器测试使用的命令输出及 JSON 样例。 |
+| `docs/` | 硬件和部署说明，补充 README 中的使用文档。 |
+| `results/` | 生成的验证报告和原始命令日志；配置输出位置后，每次运行可在此创建带时间戳的子目录。 |
+
+仓库根目录中的主要配置和支持文件如下：
+
+- `config.yaml`：定义 SKU 设置、配置组合、阈值、工具路径、网络模式和 NCCL 环境变量。
+- `README.md`：英文安装、使用、检查和部署说明。
+- `README_CN.md`：中文安装、使用和检查说明。
+- `requirements.txt`：运行时 Python 依赖。
+
+`gputest/` 中，`cli.py` 是命令行入口；`core.py` 提供结果模型、检查注册、
+外部命令执行和节点执行；`checks.py` 包含本地验证检查；
+`multihost_checks.py` 包含 SSH、RDMA 和 NCCL 检查；`optional_checks.py` 包含
+可选的网络和存储检查；`parsers.py` 将命令文本转换为结构化数据；
+`reporting.py` 负责生成可读和机器可读的报告。
+
 ## 安装
 
 ```bash
@@ -91,7 +118,16 @@ ubuntu@192.0.2.12
 
 `--nodes` 指定 SSH 主机。各主机的预检、burn、nvbandwidth、BabelStream 和 DCGM 在有限数量的并行工作进程中执行；RDMA 使用前两台主机，NCCL 从所列候选主机中选择。不指定主机选择选项时，单主机检查在本地运行，多主机检查标记为 SKIP。`--tests CHECK,CHECK` 覆盖配置组合中的检查列表，但 burn 时长和 DCGM 级别仍由 `--profile` 决定。`--gpu-count` 可覆盖配置的 GPU 数量。请使用独占或空闲的 GPU 主机。
 
-控制端、启动端和其他主机之间需要可信的 SSH 密钥和 known_hosts。`setup-ssh --nodes n1,n2 --dry-run` 可预览可选的密钥配置，但不会建立完整的主机互联。使用 `--tests ssh_connectivity` 验证站点 SSH 策略和密钥。所有外部命令均通过统一的执行助手运行，支持超时、原始日志、模拟和预览；远端命令还在目标主机上使用 GNU timeout，以限制 SSH 断开后负载的运行时间。
+控制端、启动端和其他主机之间需要可信的 SSH 密钥和 known_hosts。建议把 SSH 配置作为 GPU 测试的准备步骤：如果镜像已接受统一私钥对应的公钥，可执行：
+
+```bash
+python3 -m gputest.cli setup-ssh \
+  --nodes 10.0.1.241,10.0.1.117 \
+  --user ubuntu \
+  --private-key ~/.ssh/gb300_shared_ed25519
+```
+
+该命令使用提供的私钥登录每台节点，把同一套私钥、公钥写入每台节点的 `~/.ssh`，将公钥加入 `authorized_keys`，并配置节点之间的 `known_hosts`。私钥会复制到所有节点，请只使用专用的集群测试密钥，并限制文件权限。执行 `--dry-run` 可先预览命令；完成后使用 `--tests ssh_connectivity` 验证控制端到节点以及启动端到其他节点的连接。所有外部命令均通过统一的执行助手运行，支持超时、原始日志、模拟和预览；远端命令还在目标主机上使用 GNU timeout，以限制 SSH 断开后负载的运行时间。
 
 ## 检查目录
 
