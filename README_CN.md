@@ -79,14 +79,14 @@ python3 -m ruff check .
 ```bash
 python3 -m gputest.cli list
 # 无需 GPU；使用样例数据：
-python3 -m gputest.cli run --sku gb300 --profile quick --mock
+python3 -m gputest.cli run --sku gb300 --level basic --mock
 # 预览命令，不执行 SSH、构建或负载：
-python3 -m gputest.cli run --sku gb300 --profile standard --nodes n1,n2 \
+python3 -m gputest.cli run --sku gb300 --level standard --nodes n1,n2 \
   --network-mode multiplanar --dry-run
 # 使用已安装工具进行本地实际验证：
-python3 -m gputest.cli run --sku gb300 --profile quick
+python3 -m gputest.cli run --sku gb300 --level basic
 # 双主机标准验证：
-python3 -m gputest.cli run --sku gb300 --profile standard --nodes n1,n2
+python3 -m gputest.cli run --sku gb300 --level standard --nodes n1,n2
 ```
 
 可以使用 IP 地址或 SSH 主机名指定节点，重复使用 `--node`、使用逗号分隔的 `--nodes`，或者通过主机文件指定：
@@ -118,7 +118,7 @@ ubuntu@192.0.2.12
 
 基于 MPI 的 NCCL 和多节点 nvbandwidth 还需要在启动节点的 SSH 配置中，为每台主机或 SSH 别名设置对应的 `User`；`--user` 和 `user@host` 控制 gputest 自身的 SSH 连接，不会传递给 MPI。主机文件和启动节点的 SSH 配置应使用相同的名称或别名，并确保启动节点可免密连接其他主机。IPv6 MPI 目标请使用 MPI 安装支持的 SSH 别名。IMEX 成员检查要求所选主机名称与 IMEX 清单一致。
 
-`--nodes` 指定 SSH 主机。各主机的预检、burn、nvbandwidth、BabelStream 和 DCGM 在有限数量的并行工作进程中执行；RDMA 使用前两台主机，NCCL 从所列候选主机中选择。不指定主机选择选项时，单主机检查在本地运行，多主机检查标记为 SKIP。`--tests CHECK,CHECK` 覆盖配置组合中的检查列表，但 burn 时长和 DCGM 级别仍由 `--profile` 决定。`--gpu-count` 可覆盖配置的 GPU 数量。请使用独占或空闲的 GPU 主机。
+`--nodes` 指定 SSH 主机。各主机的预检、burn、nvbandwidth、BabelStream 和 DCGM 在有限数量的并行工作进程中执行；RDMA 使用前两台主机，NCCL 从所列候选主机中选择。不指定主机选择选项时，单主机检查在本地运行，多主机检查标记为 SKIP。`--tests CHECK,CHECK` 覆盖配置组合中的检查列表，但 burn 时长和 DCGM 级别仍由 `--level` 决定。`--gpu-count` 可覆盖配置的 GPU 数量。请使用独占或空闲的 GPU 主机。
 
 控制端、启动端和其他主机之间需要可信的 SSH 密钥和 known_hosts。建议把 SSH 配置作为 GPU 测试的准备步骤：如果镜像已接受统一私钥对应的公钥，可执行：
 
@@ -205,11 +205,11 @@ python3 -m gputest.cli setup-ssh \
 
 | 配置组合 | 每台主机 burn 时长 | 检查 | 预计时间 |
 |---|---:|---|---|
-| `quick` | 120 秒 | 网络模式、GPU、GPU/NIC 拓扑、Fabric Manager、NUMA、RDMA 设备/VRF、短时 burn | 工具已安装时约 5 分钟 |
-| `standard` | 1,200 秒 | quick 预检、SSH、burn、nvbandwidth、BabelStream、DCGM r2、RDMA 带宽和延迟 | 20 分钟 burn 加诊断和带宽测试时间 |
-| `full` | 3,600 秒 | standard 检查、GMF 位置、IMEX、DCGM r3、多主机 all-reduce 和 all-to-all | 1 小时以上 |
+| `basic` | 120 秒 | 网络模式、GPU、GPU/NIC 拓扑、Fabric Manager、NUMA、RDMA 设备/VRF、短时 burn | 工具已安装时约 5 分钟 |
+| `standard` | 1,200 秒 | basic 预检、SSH、burn、nvbandwidth、BabelStream、DCGM r2、RDMA 带宽和延迟 | 20 分钟 burn 加诊断和带宽测试时间 |
+| `extended` | 3,600 秒 | standard 检查、GMF 位置、IMEX、DCGM r3、多主机 all-reduce 和 all-to-all | 1 小时以上 |
 
-`a100_standard`、`h100_full` 等 SKU 专用组合是基础组合的别名。Fabric Manager、NVLink 和 IMEX 按各 SKU 的能力标志选择，不支持的检查为 SKIP。调整 `profile_settings.<profile>.burn_duration_s` 可更改 burn 时长；设置 `dcgmi.profile_levels.full: 4` 可使用 r4（使用 `a10_full` 别名时也需调整该别名）。构建、超时、大量 GPU 和诊断级别都可能延长运行时间。quick 默认不包含 DCGM；显式选择时使用 r1。
+`a100_standard`、`h100_extended` 等 SKU 专用组合是基础组合的别名。Fabric Manager、NVLink 和 IMEX 按各 SKU 的能力标志选择，不支持的检查为 SKIP。调整 `level_settings.<level>.burn_duration_s` 可更改 burn 时长；设置 `dcgmi.diag_levels.extended: 4` 可使用 r4（使用 `a10_extended` 别名时也需调整该别名）。构建、超时、大量 GPU 和诊断级别都可能延长运行时间。basic 默认不包含 DCGM；显式选择时使用 r1。
 
 ## 网络、位置和检查行为
 
@@ -227,7 +227,7 @@ OCI shape 名称不会决定网络模式。自动模式根据目标主机 IMDS �
 
 ### 可选网络和存储验收检查
 
-`full` 包含以下检查，但各项在启用自己的配置并提供所需路径或接口之前均处于禁用状态，也可通过 `--tests` 选择。工具路径在 `config.yaml` 的 `tools` 下配置；`ethtool`、`lldpcli`、Linux `ping`、`iperf3`、`findmnt`、`lfs`、`fio` 和 OCI CLI 仅为使用它们的检查所需。先用 `--dry-run` 预览所有主机的命令。性能阈值取决于部署环境；未配置阈值时报告 WARN。
+`extended` 包含以下检查，但各项在启用自己的配置并提供所需路径或接口之前均处于禁用状态，也可通过 `--tests` 选择。工具路径在 `config.yaml` 的 `tools` 下配置；`ethtool`、`lldpcli`、Linux `ping`、`iperf3`、`findmnt`、`lfs`、`fio` 和 OCI CLI 仅为使用它们的检查所需。先用 `--dry-run` 预览所有主机的命令。性能阈值取决于部署环境；未配置阈值时报告 WARN。
 
 - `nic_inventory` 使用 `ethtool` 检查各配置网卡的载波和协商速率，并可选比较 LLDP 机箱和端口标识。LLDP 需要交换机通告和主机代理；缺少对端时 WARN。各主机上的接口必须能被 `ethtool` 看到，虚拟功能可能不提供物理链路速率。LLDP 和连通性可以发现部分接线错误，但不能证明所有接线正确；需验证部署的 `lldpcli` 字段和预期交换机端口清单。
 - `network_ping` 检查明确配置的 IPv4/IPv6 源和目标路径，可选源 VRF。每条路径的 `node` 指向 `--nodes` 中的名称，省略时本地执行。仅列出当前部署中预期可通信的路径。`sample_count: 0` 检查全部路径；正数使用 `seed` 对每台源主机进行可复现采样。丢包超过 `max_loss_pct` 时失败。需允许 ICMP、路由、地址和 VRF 访问；同机 ping 可能不经过网卡或交换机。
@@ -272,9 +272,9 @@ python3 -m gputest.cli report results/run-YYYYMMDD-HHMMSS
 ## 已知良好基线
 
 ```bash
-python3 -m gputest.cli run --sku gb300 --profile standard --nodes n1,n2 \
+python3 -m gputest.cli run --sku gb300 --level standard --nodes n1,n2 \
   --baseline save --baseline-file baselines/site.json
-python3 -m gputest.cli run --sku gb300 --profile standard --nodes n1,n2 \
+python3 -m gputest.cli run --sku gb300 --level standard --nodes n1,n2 \
   --baseline compare --baseline-file baselines/site.json
 ```
 
@@ -330,7 +330,7 @@ def persistence(ctx: RunContext) -> Result:
 ```
 
 ```yaml
-# config.yaml (also add persistence to a profile if desired)
+# config.yaml (also add persistence to a level if desired)
 persistence: {expected: Enabled, timeout_s: 10}
 # Add under the existing troubleshooting dictionary:
 # persistence: ['Check persistence mode with nvidia-smi; apply site policy before retesting.']

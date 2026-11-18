@@ -187,9 +187,9 @@ def test_nvbandwidth_threshold_and_missing_sum(ctx, monkeypatch):
     assert checks.nvbandwidth(ctx).status == 'FAIL'
 
 
-@pytest.mark.parametrize(('profile', 'level'), [('quick', 1), ('standard', 2), ('full', 3)])
-def test_dcgm_profile(ctx, monkeypatch, profile, level):
-    ctx.config['_profile'] = profile
+@pytest.mark.parametrize(('level', 'diag_level'), [('basic', 1), ('standard', 2), ('extended', 3)])
+def test_dcgm_level(ctx, monkeypatch, level, diag_level):
+    ctx.config['_level'] = level
     seen = []
 
     def execute(cmd, **kwargs):
@@ -198,7 +198,7 @@ def test_dcgm_profile(ctx, monkeypatch, profile, level):
 
     monkeypatch.setattr(ctx, 'run', execute)
     result = checks.dcgmi(ctx)
-    assert seen[0][0][-3:] == ['-r', str(level), '-j']
+    assert seen[0][0][-3:] == ['-r', str(diag_level), '-j']
     assert seen[0][1]['timeout'] == 3600
     assert result.status == 'FAIL'
     assert result.metrics['test_count'] == 3
@@ -278,11 +278,11 @@ def test_timeout_retains_partial_output(tmp_path, monkeypatch):
     assert 'partial' in raw and 'problem' in raw and 'timeout' in raw
 
 
-def test_cli_profile_reaches_check(ctx, monkeypatch, tmp_path):
+def test_cli_level_reaches_check(ctx, monkeypatch, tmp_path):
     from gputest import cli
 
     args = cli.build_parser().parse_args([
-        'run', '--sku', 'gb300', '--profile', 'quick', '--tests', 'dcgmi', '--mock',
+        'run', '--sku', 'gb300', '--level', 'basic', '--tests', 'dcgmi', '--mock',
         '--network-mode', 'single_plane',
     ])
     ctx.config['network']['mode'] = 'single_plane'
@@ -309,9 +309,9 @@ def test_build_failure_is_reported(ctx, monkeypatch):
     assert result.status == 'FAIL' and 'build failed' in result.message
 
 
-def test_full_dcgm_level_four_override(ctx, monkeypatch):
-    ctx.config['_profile'] = 'full'
-    ctx.config['dcgmi']['profile_levels']['full'] = 4
+def test_extended_dcgm_level_four_override(ctx, monkeypatch):
+    ctx.config['_level'] = 'extended'
+    ctx.config['dcgmi']['diag_levels']['extended'] = 4
     result = checks.dcgmi(ctx)
     assert result.status == 'PASS' and result.metrics['level'] == 4
 

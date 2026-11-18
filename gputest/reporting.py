@@ -105,7 +105,7 @@ def _signature(ctx, result):
         options['effective_duration_s'] = ctx.burn_duration_s()
     scale = len(result.metrics.get('nodes', ctx.nodes)) or 1
     identity = {'sku': ctx.sku, 'mode': ctx.network_mode, 'scale': scale,
-                'gpu_count': ctx.sku_config()['gpu_count'], 'profile': ctx.config.get('_profile'),
+                'gpu_count': ctx.sku_config()['gpu_count'], 'level': ctx.config.get('_level'),
                 'options': options, 'mock': ctx.mock}
     return hashlib.sha256(json.dumps(identity, sort_keys=True).encode()).hexdigest(), scale
 
@@ -142,7 +142,7 @@ def apply_baseline(results, ctx):
                 raise ValueError('baseline not saved: invalid performance data')
             records.update(observations)
             data['last_saved_run'] = {'sku': ctx.sku, 'network_mode': ctx.network_mode,
-                                      'profile': ctx.config.get('_profile'), 'mock': ctx.mock,
+                                      'level': ctx.config.get('_level'), 'mock': ctx.mock,
                                       'results_dir': str(ctx.results_dir.resolve())}
             data['saved_at'] = datetime.datetime.now(datetime.timezone.utc).isoformat()  # noqa: UP017 (Python 3.10)
             temporary = path.with_suffix(path.suffix + '.tmp')

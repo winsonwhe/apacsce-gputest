@@ -746,12 +746,12 @@ def storage(ctx: RunContext) -> Result:
 
 @check('dcgmi', category='diagnostics')
 def dcgmi(ctx: RunContext) -> Result:
-    """Run profile-selected DCGM JSON diagnostics, retaining individual results."""
+    """Run level-selected DCGM JSON diagnostics, retaining individual results."""
     cfg = ctx.config['dcgmi']
-    profile = ctx.config.get('_profile', 'standard')
-    level = cfg['profile_levels'].get(profile)
+    selected_level = ctx.config.get('_level', 'standard')
+    level = cfg['diag_levels'].get(selected_level)
     if level is None:
-        level = cfg['profile_levels'][profile.rsplit('_', 1)[-1]]
+        level = cfg['diag_levels'][selected_level.rsplit('_', 1)[-1]]
     rr = ctx.run([ctx.config['tools']['dcgmi'], 'diag', '-r', str(level), '-j'],
                  timeout=cfg['timeout_s'], mock_fixture=f'dcgmi_r{level}.txt')
     problem = _command_problem('dcgmi', rr)

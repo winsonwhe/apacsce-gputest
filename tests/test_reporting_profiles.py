@@ -1,4 +1,4 @@
-"""End-to-end profile, report, baseline and preflight failure behavior without GPUs."""
+"""End-to-end level, report, baseline and preflight failure behavior without GPUs."""
 import json
 import re
 import subprocess
@@ -29,26 +29,26 @@ def context(tmp_path, **kwargs):
                       results_dir=tmp_path, **kwargs)
 
 
-@pytest.mark.parametrize(('profile', 'duration'), [('quick', 120), ('standard', 1200), ('full', 3600)])
-def test_profile_effective_commands_and_membership(tmp_path, capsys, profile, duration):
+@pytest.mark.parametrize(('level', 'duration'), [('basic', 120), ('standard', 1200), ('extended', 3600)])
+def test_level_effective_commands_and_membership(tmp_path, capsys, level, duration):
     ctx = context(tmp_path, dry_run=True)
-    ctx.config['_profile'] = profile
+    ctx.config['_level'] = level
     run_checks(['gpu_burn'], ctx)
     out = capsys.readouterr().out
     assert f' {duration}' in out
-    assert 'gpu_burn' in ctx.config['profiles'][profile]
-    if profile == 'standard':
-        assert {'babelstream', 'nvbandwidth', 'dcgmi', 'rdma_perf'} <= set(ctx.config['profiles'][profile])
-        assert not any(n.startswith('nccl') for n in ctx.config['profiles'][profile])
-    if profile == 'full':
-        assert {'nccl_local_allreduce', 'nccl_local_alltoall', 'nccl_allreduce', 'nccl_alltoall', 'imex'} <= set(ctx.config['profiles'][profile])
+    assert 'gpu_burn' in ctx.config['levels'][level]
+    if level == 'standard':
+        assert {'babelstream', 'nvbandwidth', 'dcgmi', 'rdma_perf'} <= set(ctx.config['levels'][level])
+        assert not any(n.startswith('nccl') for n in ctx.config['levels'][level])
+    if level == 'extended':
+        assert {'nccl_local_allreduce', 'nccl_local_alltoall', 'nccl_allreduce', 'nccl_alltoall', 'imex'} <= set(ctx.config['levels'][level])
 
 
-def test_all_profiles_have_registered_checks(tmp_path):
+def test_all_levels_have_registered_checks(tmp_path):
     from gputest.core import get_registry
     ctx = context(tmp_path)
     registered = {entry['name'] for entry in get_registry()}
-    assert all(set(names) <= registered for names in ctx.config['profiles'].values())
+    assert all(set(names) <= registered for names in ctx.config['levels'].values())
 
 
 def test_report_sources_hints_escape_and_raw_lines(tmp_path):
@@ -117,7 +117,7 @@ def test_changed_duration_rejects_baseline(tmp_path):
     ctx = context(tmp_path, baseline='save', baseline_file=tmp_path / 'healthy.json')
     run_checks(['gpu_burn'], ctx)
     ctx.baseline = 'compare'
-    ctx.config['profile_settings']['standard']['burn_duration_s'] += 1
+    ctx.config['level_settings']['standard']['burn_duration_s'] += 1
     assert 'incompatible workload' in run_checks(['gpu_burn'], ctx)[0].message
 
 
@@ -187,16 +187,16 @@ def test_cli_reports_failure_with_nonzero_status_and_rerenders(tmp_path, monkeyp
     assert 'Troubleshooting:' in (tmp_path / 'results.md').read_text()
 
 
-def test_full_dry_run_cannot_execute_or_write_baseline(tmp_path, monkeypatch):
+def test_extended_dry_run_cannot_execute_or_write_baseline(tmp_path, monkeypatch):
     ctx = context(tmp_path, baseline='save', baseline_file=tmp_path / 'baseline.json', dry_run=True)
     ctx.nodes = ['n1', 'n2']
-    ctx.config['_profile'] = 'full'
+    ctx.config['_level'] = 'extended'
 
     def forbidden(*args, **kwargs):
         pytest.fail('dry-run executed a subprocess')
 
     monkeypatch.setattr(subprocess, 'run', forbidden)
-    assert all(r.status == 'SKIP' for r in run_checks(ctx.config['profiles']['full'], ctx))
+    assert all(r.status == 'SKIP' for r in run_checks(ctx.config['levels']['extended'], ctx))
     assert not ctx.baseline_file.exists()
     assert not list(tmp_path.iterdir())
 

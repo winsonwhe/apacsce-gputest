@@ -332,7 +332,7 @@ def test_imex_only_validates_selected_nccl_hosts(tmp_path, monkeypatch):
 def test_local_alltoall_for_every_sku(tmp_path, sku):
     ctx = context(tmp_path, sku=sku)
     ctx.nodes = []
-    assert 'nccl_local_alltoall' in ctx.config['profiles'].get(f'{sku}_full', ctx.config['profiles']['full'])
+    assert 'nccl_local_alltoall' in ctx.config['levels'].get(f'{sku}_extended', ctx.config['levels']['extended'])
     result = run_checks(['nccl_local_alltoall'], ctx)[0]
     assert result.status == 'WARN'
     assert result.metrics['gpu_count'] == ctx.sku_config()['gpu_count']

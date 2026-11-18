@@ -104,15 +104,15 @@ def _detect_network_mode(config: dict, ctx: RunContext | None = None) -> str:
     return modes.pop()
 
 
-def _resolve_checks(profile: str, tests_override: str | None, config: dict) -> list[str]:
+def _resolve_checks(level: str, tests_override: str | None, config: dict) -> list[str]:
     """Return the ordered list of check names to run."""
     if tests_override:
         return list(dict.fromkeys(t.strip() for t in tests_override.split(",") if t.strip()))
-    profiles = config.get("profiles", {})
-    if profile not in profiles:
-        print(f"Unknown profile {profile!r}. Available: {', '.join(profiles)}", file=sys.stderr)
+    levels = config.get("levels", {})
+    if level not in levels:
+        print(f"Unknown level {level!r}. Available: {', '.join(levels)}", file=sys.stderr)
         sys.exit(1)
-    return profiles[profile]
+    return levels[level]
 
 
 # ---------------------------------------------------------------------------
@@ -148,8 +148,8 @@ def cmd_run(args, config: dict) -> None:
     if getattr(args, "gpu_count", None) is not None:
         config.setdefault("skus", {})[args.sku]["gpu_count"] = args.gpu_count
 
-    config["_profile"] = args.profile
-    checks = _resolve_checks(args.profile, getattr(args, "tests", None), config)
+    config["_level"] = args.level
+    checks = _resolve_checks(args.level, getattr(args, "tests", None), config)
 
     run_id = datetime.datetime.now().strftime("%Y%m%d-%H%M%S")
     results_dir = Path(getattr(args, "output_dir", None) or (Path("results") / f"run-{run_id}"))
@@ -177,7 +177,7 @@ def cmd_run(args, config: dict) -> None:
         detection_error = str(exc)
     network_mode = ctx.network_mode
 
-    print(f"gputest run  sku={args.sku}  profile={args.profile}  "
+    print(f"gputest run  sku={args.sku}  level={args.level}  "
           f"network={network_mode}  nodes={nodes or ['localhost']}")
     print(f"Results dir: {results_dir}")
     print()
@@ -195,7 +195,7 @@ def cmd_run(args, config: dict) -> None:
     run_meta = {
         "run_id": run_id,
         "sku": args.sku,
-        "profile": args.profile,
+        "level": args.level,
         "network_mode": network_mode,
         "nodes": nodes or ["localhost"],
         "burn_duration_s": ctx.burn_duration_s(),
@@ -327,15 +327,15 @@ def build_parser() -> argparse.ArgumentParser:
 
     # run
     run_p = sub.add_parser("run", help="Run checks.")
-    # SKU/profile names come from the selected YAML file, so argparse must not
+    # SKU/level names come from the selected YAML file, so argparse must not
     # freeze them to the repository defaults (custom deployments may add one).
     run_p.add_argument("--sku", required=True, help="Hardware SKU.")
-    run_p.add_argument("--profile", default="standard",
-                       help="Check profile from config.yaml (default: standard).")
+    run_p.add_argument("--level", default="standard",
+                       help="Check level from config.yaml (default: standard).")
     run_p.add_argument("--gpu-count", type=_positive_int, default=None,
                        help="Override expected GPU count (useful for partial A10 hosts).")
     run_p.add_argument("--tests", metavar="CHECK,CHECK,...",
-                       help="Override profile: run only these checks.")
+                       help="Override level: run only these checks.")
     _add_host_options(run_p)
     run_p.add_argument("--node-count", type=_positive_int,
                        help="Select this many NCCL nodes from --nodes using GMF placement.")

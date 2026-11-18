@@ -323,7 +323,7 @@ class TestReportWriters:
 
     def _meta(self):
         return {"run_id": "test-001", "sku": "a10",
-                "profile": "a10_quick", "network_mode": "single_plane",
+                "level": "a10_basic", "network_mode": "single_plane",
                 "nodes": ["localhost"]}
 
     def test_json_written(self, tmp_path):
@@ -415,11 +415,11 @@ class TestConfig:
         cfg = load_config(CONFIG_PATH)
         assert cfg["skus"]["a10"]["fabricmanager_required"] is False
 
-    def test_a10_profiles(self):
+    def test_a10_levels(self):
         cfg = load_config(CONFIG_PATH)
-        assert "a10_quick" in cfg["profiles"]
-        assert "a10_standard" in cfg["profiles"]
-        assert "a10_full" in cfg["profiles"]
+        assert "a10_basic" in cfg["levels"]
+        assert "a10_standard" in cfg["levels"]
+        assert "a10_extended" in cfg["levels"]
 
     def test_a10_nvbandwidth_config(self):
         cfg = load_config(CONFIG_PATH)
@@ -440,7 +440,7 @@ class TestConfig:
     def test_dcgmi_config(self):
         cfg = load_config(CONFIG_PATH)
         assert "dcgmi" in cfg
-        assert cfg["dcgmi"]["profile_levels"]["quick"] == 1
+        assert cfg["dcgmi"]["diag_levels"]["basic"] == 1
 
 
 # ---------------------------------------------------------------------------

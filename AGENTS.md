@@ -29,7 +29,7 @@ gputest/
   core.py         # Result, @check registry, run() helper, node executor (local / ssh), report writer
   checks.py       # all test functions (preflight, burn, bandwidth, dcgm, rdma, nccl)
   parsers.py      # pure parsing functions
-config.yaml       # profiles (quick/standard/full), sku settings, network modes, thresholds, NCCL env
+config.yaml       # levels (basic/standard/extended), sku settings, network modes, thresholds, NCCL env
 fixtures/         # sample command outputs for mock mode and unit tests
 tests/            # pytest
 docs/             # reference PDF

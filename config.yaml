@@ -1,45 +1,45 @@
-profiles:
-  quick: &quick [network_mode, nvidia_smi, kernel_xid, ecc_remap, pcie_link, nvlink,
+levels:
+  basic: &basic [network_mode, nvidia_smi, kernel_xid, ecc_remap, pcie_link, nvlink,
                   clocks_throttle, software_versions, oca_version, gpu_topology, fabricmanager,
                   numa_topology, numa_affinity, rdma_iface, gpudirect_rdma, gpu_burn]
   standard: &standard [network_mode, nvidia_smi, kernel_xid, ecc_remap, pcie_link, nvlink,
                        clocks_throttle, software_versions, oca_version, gpu_topology, fabricmanager,
                        numa_topology, numa_affinity, rdma_iface, gpudirect_rdma, ssh_connectivity, gpu_burn,
                        nvbandwidth, babelstream, dcgmi, rdma_perf, rdma_read, rdma_send, gdr_perf]
-  full: &full [network_mode, nvidia_smi, kernel_xid, ecc_remap, pcie_link, nvlink,
+  extended: &extended [network_mode, nvidia_smi, kernel_xid, ecc_remap, pcie_link, nvlink,
                clocks_throttle, software_versions, oca_version, gpu_topology, fabricmanager, numa_topology,
                numa_affinity, rdma_iface, gpudirect_rdma, ssh_connectivity, placement, imex, gpu_burn, nvbandwidth,
                babelstream, dcgmi, rdma_perf, rdma_read, rdma_send, gdr_perf,
                nccl_local_allreduce, nccl_local_alltoall, nccl_allreduce, nccl_alltoall,
                storage, nic_inventory, network_ping, tcp_bandwidth, lustre_client,
                filesystem_perf, object_storage, object_upload]
-  a10_quick: *quick
+  a10_basic: *basic
   a10_standard: *standard
-  a10_full: *full
-  a100_quick: *quick
+  a10_extended: *extended
+  a100_basic: *basic
   a100_standard: *standard
-  a100_full: *full
-  h100_quick: *quick
+  a100_extended: *extended
+  h100_basic: *basic
   h100_standard: *standard
-  h100_full: *full
-  h200_quick: *quick
+  h100_extended: *extended
+  h200_basic: *basic
   h200_standard: *standard
-  h200_full: *full
-  l40s_quick: *quick
+  h200_extended: *extended
+  l40s_basic: *basic
   l40s_standard: *standard
-  l40s_full: *full
-  b200_quick: *quick
+  l40s_extended: *extended
+  b200_basic: *basic
   b200_standard: *standard
-  b200_full: *full
-  gb200_quick: *quick
+  b200_extended: *extended
+  gb200_basic: *basic
   gb200_standard: *standard
-  gb200_full: *full
+  gb200_extended: *extended
 
 # Budget assumes preinstalled tools; builds and slow/failing hosts add time.
-profile_settings:
-  quick: {burn_duration_s: 120, description: 'About 5 min: preflight + 2 min burn'}
+level_settings:
+  basic: {burn_duration_s: 120, description: 'About 5 min: preflight + 2 min burn'}
   standard: {burn_duration_s: 1200, description: 'Preflight + 20 min burn + bandwidth + DCGM r2 + RDMA'}
-  full: {burn_duration_s: 3600, description: '1h burn + DCGM r3 (configurable r4) + multi-host NCCL'}
+  extended: {burn_duration_s: 3600, description: '1h burn + DCGM r3 (configurable r4) + multi-host NCCL'}
 
 baseline:
   tolerance_pct: 20
@@ -339,9 +339,9 @@ babelstream:
 
 dcgmi:
   # https://docs.nvidia.com/datacenter/dcgm/latest/user-guide/dcgm-diagnostics.html
-  profile_levels: {quick: 1, standard: 2, full: 3,
-                   a10_quick: 1, a10_standard: 2, a10_full: 3}
-  # Full can be changed to level 4; diagnostics may take many minutes.
+  diag_levels: {basic: 1, standard: 2, extended: 3,
+                   a10_basic: 1, a10_standard: 2, a10_extended: 3}
+  # Extended can be changed to level 4; diagnostics may take many minutes.
   timeout_s: 3600
 
 nvbandwidth:
@@ -586,4 +586,4 @@ troubleshooting:
     - 'Check GMF/local-block placement and per-GMF IMEX; compare largest-size in-place and out-of-place busbw with the named threshold source.'
   nccl_alltoall: *nccl_hints
   baseline:
-    - 'Use the same SKU, network mode, scale, profile and workload options; inspect regressions before recalibrating on known-good hardware.'
+    - 'Use the same SKU, network mode, scale, level and workload options; inspect regressions before recalibrating on known-good hardware.'

@@ -9,13 +9,13 @@ standard library plus PyYAML; no plugin framework or GPU dependency for mock run
 
 ## Project architecture
 
-The project keeps the validation flow flat: the CLI reads a profile from
+The project keeps the validation flow flat: the CLI reads a level from
 `config.yaml`, `gputest` registers and runs checks, and each check stores its raw
 command output together with a `PASS`, `WARN`, `FAIL` or `SKIP` result.
 
 ```text
 .
-├── config.yaml                 # SKUs, profiles, thresholds, tools, network and NCCL settings
+├── config.yaml                 # SKUs, levels, thresholds, tools, network and NCCL settings
 ├── requirements.txt            # Runtime Python dependency
 ├── gputest/                    # Application source code
 │   ├── cli.py                  # Command-line entry point
@@ -68,7 +68,7 @@ their documentation or upstream projects:
 | Tool | Purpose | Documentation |
 |---|---|---|
 | [Python](https://docs.python.org/3/) | Runs the CLI and validation checks; Python 3.10 or newer is required. | [Python documentation](https://docs.python.org/3/) |
-| [PyYAML](https://pyyaml.org/wiki/PyYAMLDocumentation) | Loads thresholds, profiles, tool paths and NCCL settings from `config.yaml`. | [PyYAML documentation](https://pyyaml.org/wiki/PyYAMLDocumentation) |
+| [PyYAML](https://pyyaml.org/wiki/PyYAMLDocumentation) | Loads thresholds, levels, tool paths and NCCL settings from `config.yaml`. | [PyYAML documentation](https://pyyaml.org/wiki/PyYAMLDocumentation) |
 | [pytest](https://docs.pytest.org/) | Runs the unit and orchestration tests, including CPU-only fixture tests. | [pytest documentation](https://docs.pytest.org/) |
 | [Ruff](https://docs.astral.sh/ruff/) | Checks Python code for lint errors and common style or correctness issues. | [Ruff documentation](https://docs.astral.sh/ruff/) |
 | [NVIDIA Driver](https://docs.nvidia.com/datacenter/tesla/), [CUDA Toolkit](https://docs.nvidia.com/cuda/) | Provides GPU access and CUDA tooling for hardware validation and CUDA-based workloads. | [NVIDIA documentation](https://docs.nvidia.com/) |
@@ -81,7 +81,7 @@ their documentation or upstream projects:
 | [nccl-tests](https://github.com/NVIDIA/nccl-tests) | Provides `all_reduce_perf` and `alltoall_perf` for NCCL validation. | [nccl-tests project](https://github.com/NVIDIA/nccl-tests) |
 | [GNU coreutils `timeout`](https://www.gnu.org/software/coreutils/manual/html_node/timeout-invocation.html) | Bounds every external command so failed or hung workloads finish predictably. | [timeout manual](https://www.gnu.org/software/coreutils/manual/html_node/timeout-invocation.html) |
 
-The mock profile only needs Python, PyYAML and the project test tools. GPU-host
+Mock runs only need Python, PyYAML and the project test tools. GPU-host
 dependencies are required when running hardware checks for real. `git`, `make`,
 CMake and `nvcc` are also needed when configured benchmark sources must be built.
 
@@ -98,14 +98,14 @@ Run from the repository root:
 ```bash
 python3 -m gputest.cli list
 # No GPU required; fixtures complete immediately:
-python3 -m gputest.cli run --sku gb300 --profile quick --mock
+python3 -m gputest.cli run --sku gb300 --level basic --mock
 # Inspect all commands without SSH, builds or workloads:
-python3 -m gputest.cli run --sku gb300 --profile standard --nodes n1,n2 \
+python3 -m gputest.cli run --sku gb300 --level standard --nodes n1,n2 \
   --network-mode multiplanar --dry-run
 # Real local validation, with preinstalled tools:
-python3 -m gputest.cli run --sku gb300 --profile quick
+python3 -m gputest.cli run --sku gb300 --level basic
 # Real two-host standard validation:
-python3 -m gputest.cli run --sku gb300 --profile standard --nodes n1,n2
+python3 -m gputest.cli run --sku gb300 --level standard --nodes n1,n2
 ```
 
 You can select hosts by IP address or SSH hostname, repeat the option, or use a
@@ -151,7 +151,7 @@ require the selected host names to match the IMEX inventory.
 DCGM run on all supplied hosts in bounded parallel workers. RDMA uses the first
 two hosts; NCCL selects from the supplied candidates. Without host selection options, per-host
 checks run locally and multi-host checks SKIP. `--tests CHECK,CHECK` overrides the
-profile's check list; its burn duration and DCGM level still follow `--profile`.
+level's check list; its burn duration and DCGM level still follow `--level`.
 `--gpu-count` overrides the configured GPU count. Use exclusive/idle GPU hosts.
 
 Provision trusted SSH keys/known_hosts before running GPU tests. When the image
@@ -188,7 +188,7 @@ preview commands. Use `python3 -m gputest.cli list` for the current registry.
 
 The tables group checks by purpose and roughly progress from inventory and
 health checks to performance and multi-host workloads within each group. This
-is a reading guide; profiles and explicit `--tests` order determine execution.
+is a reading guide; levels and explicit `--tests` order determine execution.
 The Category column retains the CLI registry category.
 
 ### System Validation
@@ -269,7 +269,7 @@ For multiplanar RDMA, the perftest commands are prefixed with configured
 host's `/etc/os-release`, prefers `dpkg-query` and snap on Debian/Ubuntu and
 `rpm` on Oracle Linux/RHEL-family systems, and also probes the other package
 managers to cover alternative installations. It records all detected package
-versions and the raw output. It is enabled in all profiles; set
+versions and the raw output. It is enabled in all levels; set
 `oca_version.enabled: false` to disable it. The configured minimum version is
 `1.64.0`; set `oca_version.min_version` to another quoted numeric version if
 needed. Without a minimum, or if no package is detected, the check reports WARN. Comparison
@@ -279,19 +279,19 @@ assumed compliant. This checks package versions, not agent service or plugin
 health. TODO(verify): confirm package names and query output on the OCI images in
 use; custom or non-package installations may need additional detection.
 
-## Profiles
+## Levels
 
-| Profile | Burn per host | Checks | Expected time |
+| Level | Burn per host | Checks | Expected time |
 |---|---:|---|---|
-| `quick` | 120 s | Network mode, GPUs, GPU/NIC topology, Fabric Manager, NUMA, RDMA devices/VRFs, short burn | About 5 min with installed tools |
+| `basic` | 120 s | Network mode, GPUs, GPU/NIC topology, Fabric Manager, NUMA, RDMA devices/VRFs, short burn | About 5 min with installed tools |
 | `standard` | 1,200 s | Quick preflights, SSH, burn, nvbandwidth, BabelStream, DCGM r2, RDMA bandwidth and latency | 20 min burn plus diagnostics/bandwidth overhead |
-| `full` | 3,600 s | Standard checks, GMF placement, IMEX, DCGM r3, multi-host all-reduce and all-to-all | 1 h+ |
+| `extended` | 3,600 s | Standard checks, GMF placement, IMEX, DCGM r3, multi-host all-reduce and all-to-all | 1 h+ |
 
-Per-SKU profiles such as `a100_standard` and `h100_full` are aliases of the base
-profiles. Fabric Manager, NVLink and IMEX are selected from each SKU's capability
-flags; unsupported checks SKIP. Change `profile_settings.<profile>.burn_duration_s` for a
-10–30 minute standard burn or a longer full burn. Set
-`dcgmi.profile_levels.full: 4` for r4 (also change `a10_full` if using that alias).
+Per-SKU levels such as `a100_standard` and `h100_extended` are aliases of the base
+levels. Fabric Manager, NVLink and IMEX are selected from each SKU's capability
+flags; unsupported checks SKIP. Change `level_settings.<level>.burn_duration_s` for a
+10–30 minute standard burn or a longer extended burn. Set
+`dcgmi.diag_levels.extended: 4` for r4 (also change `a10_extended` if using that alias).
 Builds, timeout failures, many GPUs and diagnostic levels can extend these budgets.
 Quick omits DCGM by default; selecting it explicitly uses r1.
 
@@ -319,7 +319,7 @@ fallback; pass `--network-mode` to preview the desired commands.
   see [NVIDIA's instructions](https://github.com/NVIDIA/nvbandwidth#multi-node-support).
 - `babelstream`: run each GPU, normalize MB/s to GB/s, compare every
   Copy/Mul/Add/Triad/Dot measurement and report means/spread.
-- `dcgmi`: request JSON for the profile's diagnostic level; preserve individual
+- `dcgmi`: request JSON for the selected level's diagnostic run; preserve individual
   test/entity outcomes and warnings, even after a failed command.
 - `rdma_perf`: run `ib_write_bw` and `ib_write_lat` per rail/device. `rdma_bw` and
   `rdma_lat` select one workload. `rdma_read` and `rdma_send` run the corresponding
@@ -348,7 +348,7 @@ fallback; pass `--network-mode` to preview the desired commands.
 
 ### Optional network and storage acceptance checks
 
-The `full` profile includes the following checks, each disabled until its own
+The `extended` level includes the following checks, each disabled until its own
 configuration is enabled and its required paths or interfaces are supplied. They
 can also be selected with `--tests`. Configure tool paths under `tools` in
 `config.yaml`; `ethtool`, `lldpcli`, Linux `ping`, `iperf3`, `findmnt`, `lfs`,
@@ -473,9 +473,9 @@ it follows supplied manual excerpts and the
 ## Known-good baselines
 
 ```bash
-python3 -m gputest.cli run --sku gb300 --profile standard --nodes n1,n2 \
+python3 -m gputest.cli run --sku gb300 --level standard --nodes n1,n2 \
   --baseline save --baseline-file baselines/site.json
-python3 -m gputest.cli run --sku gb300 --profile standard --nodes n1,n2 \
+python3 -m gputest.cli run --sku gb300 --level standard --nodes n1,n2 \
   --baseline compare --baseline-file baselines/site.json
 ```
 
@@ -492,10 +492,10 @@ regressions fail. Health/status regressions and missing/incompatible observation
 also fail. Tolerances are in `baseline`: 20% generally, 10% for burn and 20% for
 NCCL (80% of recorded bandwidth). Latency may increase by the configured tolerance.
 
-Records distinguish SKU, mode, GPU count, scale, profile, workload options and
+Records distinguish SKU, mode, GPU count, scale, level, workload options and
 mock vs real execution. Changed duration, precision, message sizes or tuning
 requires a new baseline. Checks are keyed independently, so saving another
-profile/check adds records at its scope. The same check/scale record is replaced
+level/check adds records at its scope. The same check/scale record is replaced
 by a later successful save. Host positions pair equivalent hosts across runs;
 rail/device and GPU metric names must match. Versioned baseline files from older
 gputest revisions must be regenerated. Mock baselines are only orchestration tests.
@@ -525,7 +525,7 @@ Provision exclusive/idle hosts through your normal cluster process before testin
 ## Add a check
 
 Add a pure parser in `gputest/parsers.py`, one decorated function in
-`gputest/checks.py`, a fixture, a unit test and an optional profile entry. Use
+`gputest/checks.py`, a fixture, a unit test and an optional level entry. Use
 `ctx.run` for every external command; configurable expectations belong in YAML.
 Here is a complete persistence-mode check example:
 
@@ -556,7 +556,7 @@ def persistence(ctx: RunContext) -> Result:
 ```
 
 ```yaml
-# config.yaml (also add persistence to a profile if desired)
+# config.yaml (also add persistence to a level if desired)
 persistence: {expected: Enabled, timeout_s: 10}
 # Add under the existing troubleshooting dictionary:
 # persistence: ['Check persistence mode with nvidia-smi; apply site policy before retesting.']
