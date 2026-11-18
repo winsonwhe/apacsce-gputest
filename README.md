@@ -13,6 +13,8 @@ The project keeps the validation flow flat: the CLI reads a level from
 `config.yaml`, `gputest` registers and runs checks, and each check stores its raw
 command output together with a `PASS`, `WARN`, `FAIL` or `SKIP` result.
 
+xxx
+
 ```text
 .
 ├── config.yaml                 # SKUs, levels, thresholds, tools, network and NCCL settings
