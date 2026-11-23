@@ -40,20 +40,25 @@ pass command output to `parsers.py` when needed, and send their results to
 
 ## Install
 
+Use the installation script on a supported Linux host. It detects Oracle
+Linux/RHEL-family and Ubuntu/Debian-family systems, installs the base system
+packages, clones the repository, creates `.venv`, installs Python
+dependencies, runs the test and lint checks, and configures passwordless SSH.
+
+Run these commands from the directory where the repository should be cloned:
+
 ```bash
-python3 -m venv .venv
-source .venv/bin/activate
-# oracle linux
-sudo dnf install -y python3-pip
-
-# ubuntu
-sudo apt install -y python3-pip
-
-python3 -m pip install -r requirements.txt
-python3 -m pip install pytest ruff
-python3 -m pytest -q
-python3 -m ruff check .
+curl -fsSL https://raw.githubusercontent.com/winsonwhe/apacsce-gputest/main/install.sh -o install.sh
+chmod +x install.sh
+./install.sh
 ```
+
+The script is interactive. It asks for the private key used by the test nodes
+and opens `all_gpu_nodes.txt` in `vim`; enter one node per line before closing
+the editor. The default SSH user is `ubuntu`. The script needs `sudo`, `vim`, network access
+to the package repositories and GitHub, and an interactive terminal.
+If `apacsce-gputest` or the SSH key already exists, the corresponding setup
+step is skipped.
 
 On GPU hosts, provision the NVIDIA driver/CUDA, Fabric Manager where applicable,
 DCGM, numactl, iproute2 (`ip`, `rdma`, `ss`), perftest, GNU `timeout`, and MPI/UCX

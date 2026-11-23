@@ -414,7 +414,7 @@ def _prepare(ctx, name, section, cmake_flags=()):
         # Remote binaries are provisioned beforehand; do not inspect/build on the controller.
         return tool, None
     installed = shutil.which(tool)
-    if not ctx.mock and installed:
+    if not ctx.mock and not ctx.dry_run and installed:
         return str(Path(installed).resolve()), None
     if not cfg.get('build_if_missing', False):
         return tool, None
