@@ -330,7 +330,7 @@ def _save_raw(cmd: list[str], stdout: str, stderr: str, results_dir: Path | None
     safe = cmd[0].replace("/", "_").lstrip("_")
     path = results_dir / f"{safe}_{ts}.txt"
     with open(path, "w") as f:
-        f.write(f"# cmd: {' '.join(cmd)}\n")
+        f.write(f"# cmd: {shlex.join(cmd)}\n")
         if stdout:
             f.write(stdout)
         if stderr:

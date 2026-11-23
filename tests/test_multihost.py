@@ -65,7 +65,25 @@ def test_remote_quoting_environment_cwd_and_timeout(monkeypatch, tmp_path):
     assert "'X=a b'" in script
     assert captured['kwargs']['env'] is None
     assert captured['kwargs']['cwd'] is None
-    assert list(tmp_path.glob('ssh_*.txt'))
+    logged = next(tmp_path.glob('ssh_*.txt')).read_text().splitlines()[0]
+    assert shlex.split(logged.removeprefix('# cmd: ')) == argv
+
+
+def test_remote_imds_header_survives_ssh_and_log(monkeypatch, tmp_path):
+    captured = {}
+
+    def execute(cmd, **kwargs):
+        captured['cmd'] = cmd
+        return subprocess.CompletedProcess(cmd, 0, '{}', '')
+
+    monkeypatch.setattr(subprocess, 'run', execute)
+    curl = ['curl', '-fsSL', '--max-time', '2', '-H', 'Authorization: Bearer Oracle',
+            'http://169.254.169.254/opc/v2/host']
+    run(curl, node='ubuntu@10.0.1.243', timeout=7, results_dir=tmp_path)
+    logged = next(tmp_path.glob('ssh_*.txt')).read_text().splitlines()[0]
+    ssh_argv = shlex.split(logged.removeprefix('# cmd: '))
+    assert ssh_argv == captured['cmd']
+    assert shlex.split(ssh_argv[-1])[4:] == curl
 
 
 def test_timeout_keeps_partial_raw(monkeypatch, tmp_path):
