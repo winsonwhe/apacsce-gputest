@@ -306,7 +306,7 @@ def ecc_remap(ctx: RunContext) -> Result:
 @check('pcie_link', category='preflight')
 def pcie_link(ctx: RunContext) -> Result:
     """Report current PCIe generation/width and AER counters."""
-    cmd = [ctx.config['tools']['nvidia_smi'], '-q', '-d', 'PCI']
+    cmd = [ctx.config['tools']['nvidia_smi'], '-q']
     return _diagnostic_result(ctx, 'pcie_link', cmd, 'nvidia_smi_pcie.txt', parsers.parse_pcie_link,
                               warn_on=lambda m: any(v > 0 for v in m.get('aer', {}).values()))
 

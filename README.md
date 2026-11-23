@@ -214,7 +214,7 @@ The Category column retains the CLI registry category.
 | preflight | `nvidia_smi` | GPU inventory, driver, memory and ECC mode | `nvidia-smi --query-gpu=index,name,driver_version,memory.total,ecc.mode.current --format=csv,noheader,nounits`; `nvidia-smi --query-gpu=compute_cap --format=csv,noheader` | All |
 | preflight | `gpu_topology` | GPU and NIC topology inventory | `nvidia-smi topo -m` | All |
 | preflight | `numa_affinity` | GPU CPU/NUMA affinity reported by the driver | `nvidia-smi topo -m` CPU/NUMA affinity columns | All; warns when the driver does not expose affinity |
-| preflight | `pcie_link` | GPU PCIe link status and negotiated characteristics | `nvidia-smi -q -d PCI` | All |
+| preflight | `pcie_link` | GPU PCIe link status and negotiated characteristics | `nvidia-smi -q` | All |
 | preflight | `nvlink` | GPU NVLink status | `nvidia-smi nvlink -s` | A100, H100, H200, B200, GB200 and GB300 with current `nvlink` flags; others SKIP |
 | preflight | `fabricmanager` | Fabric Manager service state | `systemctl is-active nvidia-fabricmanager` | A100, H100, H200, B200, GB200, B300, GB300; others SKIP |
 | preflight | `kernel_xid` | NVIDIA Xid events in the current boot log | `journalctl -k --no-pager -b` | All |

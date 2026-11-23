@@ -153,7 +153,7 @@ python3 -m gputest.cli setup-ssh \
 | preflight | `nvidia_smi` | GPU、驱动、显存、ECC 模式和计算能力；`nvidia-smi --query-gpu` | 全部 |
 | preflight | `gpu_topology` | GPU 和 NIC 拓扑；`nvidia-smi topo -m` | 全部 |
 | preflight | `numa_affinity` | 驱动报告的 GPU CPU/NUMA 亲和性；`nvidia-smi topo -m` | 全部；未提供时 WARN |
-| preflight | `pcie_link` | GPU PCIe 链路状态和协商参数；`nvidia-smi -q -d PCI` | 全部 |
+| preflight | `pcie_link` | GPU PCIe 链路状态和协商参数；`nvidia-smi -q` | 全部 |
 | preflight | `nvlink` | NVLink 状态；`nvidia-smi nvlink -s` | 当前配置支持 A100、H100、H200、B200、GB200、GB300；其他 SKIP |
 | preflight | `fabricmanager` | Fabric Manager 服务状态；`systemctl is-active nvidia-fabricmanager` | A100、H100、H200、B200、GB200、B300、GB300；其他 SKIP |
 | preflight | `kernel_xid` | 本次启动的内核日志中的 NVIDIA Xid；`journalctl -k --no-pager -b` | 全部 |

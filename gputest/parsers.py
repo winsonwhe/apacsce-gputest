@@ -53,7 +53,20 @@ def parse_nvidia_smi_key_value(text: str) -> dict:
 def parse_pcie_link(text: str) -> dict:
     """Parse PCIe link generation/width and AER counters from nvidia-smi output."""
     result = {'links': [], 'aer': {}}
-    for line in text.splitlines():
+    lines = text.splitlines()
+    # Full nvidia-smi queries include ECC counters outside the PCI sections.
+    has_pci_section = any(line.strip() == 'PCI' for line in lines)
+    pci_indent = None
+    for line in lines:
+        if has_pci_section:
+            indent = len(line) - len(line.lstrip())
+            if line.strip() == 'PCI':
+                pci_indent = indent
+                continue
+            if line.strip() and pci_indent is not None and indent <= pci_indent:
+                pci_indent = None
+            if pci_indent is None:
+                continue
         low = line.lower()
         m = re.search(r'current\s+link\s+(?:gen|generation)\s*:\s*(\S+)', low)
         if m:

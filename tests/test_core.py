@@ -76,6 +76,27 @@ class TestParseNvidiaSmiCsv:
 
 
 # ---------------------------------------------------------------------------
+def test_parse_pcie_link_ignores_ecc_outside_pci_sections():
+    text = '''GPU 0000:01:00.0
+    PCI
+        Current Link Gen : 5
+        Current Link Width : x16
+        AER Correctable : 0
+    ECC Errors
+        Correctable : 42
+GPU 0000:02:00.0
+    PCI
+        Current Link Gen : 4
+        Current Link Width : x8
+    ECC Errors
+        Uncorrectable : 7
+'''
+    assert parsers.parse_pcie_link(text) == {
+        'links': [{'generation': '5', 'width': 'x16'}, {'generation': '4', 'width': 'x8'}],
+        'aer': {'aer_correctable': 0},
+    }
+
+
 # parse_rdma_link
 # ---------------------------------------------------------------------------
 
