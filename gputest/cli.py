@@ -205,8 +205,12 @@ def cmd_run(args, config: dict) -> None:
     }
     jpath = write_json(results, run_meta, results_dir)
     mpath = write_markdown(results, run_meta, results_dir)
-    print(f"\nJSON:     {jpath}")
-    print(f"Markdown: {mpath}")
+    print(f"\nJSON (machine-readable): {jpath}")
+    print(f"Markdown (human-readable): {mpath}")
+    if ctx.dry_run:
+        print("Raw output: not saved in dry-run mode")
+    else:
+        print(f"Raw output directory: {results_dir}")
     return int(any(r.status == "FAIL" for r in results))
 
 
@@ -329,19 +333,24 @@ def build_parser() -> argparse.ArgumentParser:
     run_p = sub.add_parser("run", help="Run checks.")
     # SKU/level names come from the selected YAML file, so argparse must not
     # freeze them to the repository defaults (custom deployments may add one).
-    run_p.add_argument("--sku", required=True, help="Hardware SKU.")
+    run_p.add_argument("--sku", required=True,
+                       help="Hardware SKU; see the skus keys in --config "
+                            "(default config: a10, a100, h100, h200, l40s, b200, gb200, gb300, b300).")
     run_p.add_argument("--level", default="standard",
-                       help="Check level from config.yaml (default: standard).")
+                       help="Level from the levels keys in --config (default: standard; "
+                            "default config also includes basic, extended and SKU-prefixed aliases).")
     run_p.add_argument("--gpu-count", type=_positive_int, default=None,
                        help="Override expected GPU count (useful for partial A10 hosts).")
     run_p.add_argument("--tests", metavar="CHECK,CHECK,...",
-                       help="Override level: run only these checks.")
+                       help="Override level with comma-separated check names; "
+                            "use 'python3 -m gputest.cli list' to see names.")
     _add_host_options(run_p)
     run_p.add_argument("--node-count", type=_positive_int,
                        help="Select this many NCCL nodes from --nodes using GMF placement.")
-    run_p.add_argument("--output-dir", help="Directory for JSON, Markdown and raw output.")
+    run_p.add_argument("--output-dir", help="Directory for JSON, Markdown and raw output "
+                       "(default: results/run-<timestamp>).")
     run_p.add_argument("--baseline", choices=["save", "compare"],
-                       help="Save or compare a known-good run and performance baselines.")
+                       help="save: record a known-good baseline; compare: compare results against it.")
     run_p.add_argument("--baseline-file", default="baseline.json",
                        help="Baseline JSON path (default: baseline.json).")
     run_p.add_argument("--dry-run", action="store_true",
@@ -350,7 +359,8 @@ def build_parser() -> argparse.ArgumentParser:
                        help="Read outputs from fixtures/ instead of running commands.")
     run_p.add_argument("--network-mode", choices=["auto", "single_plane", "multiplanar"],
                        default=None,
-                       help="Override network mode detection.")
+                       help="Override config: auto detects via IMDS and uses fallback_mode on failure; "
+                            "single_plane or multiplanar selects that mode explicitly.")
     run_p.add_argument("--config", default="config.yaml",
                        help="Path to config.yaml (default: config.yaml).")
 
@@ -367,7 +377,8 @@ def build_parser() -> argparse.ArgumentParser:
     ssh_p.add_argument("--dry-run", action="store_true",
                        help="Print commands without executing them.")
     ssh_p.add_argument("--private-key", metavar="PATH",
-                       help="Private key to install on every node; its public key must already allow bootstrap SSH.")
+                       help="Private key to install on every node (default: ~/.ssh/id_ed25519); "
+                            "its public key must already allow bootstrap SSH.")
     ssh_p.add_argument("--config", default="config.yaml",
                        help="Path to config.yaml (default: config.yaml).")
 

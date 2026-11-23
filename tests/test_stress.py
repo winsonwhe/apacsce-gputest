@@ -29,6 +29,8 @@ def fixture(name):
 @pytest.fixture
 def ctx(tmp_path):
     config = load_config(FIXTURES.parent / 'config.yaml')
+    # These tests exercise gpu-burn-specific command and output behavior.
+    config['gpu_burn']['backend'] = 'gpu-burn'
     for key in ('gpu_burn', 'nvbandwidth', 'babelstream'):
         config[key]['build_if_missing'] = False
     return RunContext(config, 'gb300', [], mock=True, results_dir=tmp_path)

@@ -94,6 +94,12 @@ binary.
 
 ## Quick start
 
+Use `python3 -m gputest.cli --help` for commands and
+`python3 -m gputest.cli run --help` (or `list`, `report`, `setup-ssh`) for
+their options. The selected configuration file defines valid `skus` and
+`levels`; inspect those keys when using a custom `--config`. Run `list` to
+see the registered check names accepted by `--tests`.
+
 Run from the repository root:
 
 ```bash

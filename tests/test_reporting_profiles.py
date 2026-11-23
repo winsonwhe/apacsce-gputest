@@ -24,6 +24,8 @@ ROOT = Path(__file__).resolve().parents[1]
 
 def context(tmp_path, **kwargs):
     config = load_config(ROOT / 'config.yaml')
+    # Keep profile tests focused on the gpu-burn backend they assert below.
+    config['gpu_burn']['backend'] = 'gpu-burn'
     config['network']['mode'] = 'multiplanar'
     return RunContext(config, 'gb300', [], mock=True, network_mode='multiplanar',
                       results_dir=tmp_path, **kwargs)
