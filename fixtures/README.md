@@ -43,7 +43,7 @@ Project completion fixtures: `build.txt`, `fabricmanager_active.txt`,
 `vrf_links.json` and `gpu_topology_<sku>.txt` are synthetic success plans, not
 hardware captures. The topology samples contain only the matrix header needed
 for presence parsing; actual hardware matrices still need verification.
-`numactl_gb300.txt` and `numactl_b300.txt` reuse the two-CPU-node A10 sample to
+`numactl_gb300.txt` and `numactl_b300.txt` use an illustrative two-CPU-node sample to
 exercise filtering and do not assert Grace memory/core counts.
 
 The `ethtool.txt`, `lldp.txt`, `ping.txt`, `iperf3.json`, `fio.json`,

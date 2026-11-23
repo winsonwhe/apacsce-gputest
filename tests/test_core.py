@@ -101,16 +101,17 @@ class TestParseRdmaLink:
 # ---------------------------------------------------------------------------
 
 class TestParseNumactlHardware:
-    def test_a10_two_nodes(self):
+    def test_a10_one_node(self):
         text = (FIXTURE_DIR / "numactl_a10.txt").read_text()
         nodes = parsers.parse_numactl_hardware(text)
         cpu_nodes = [n for n in nodes if n["cpus"] and n["mem_mb"] > 0]
-        assert len(cpu_nodes) == 2
+        assert len(cpu_nodes) == 1
+        assert cpu_nodes[0]["cpus"] == list(range(60))
 
     def test_mem_parsed(self):
         text = (FIXTURE_DIR / "numactl_a10.txt").read_text()
         nodes = parsers.parse_numactl_hardware(text)
-        assert nodes[0]["mem_mb"] == 192000
+        assert nodes[0]["mem_mb"] == 483572
 
     def test_zero_mem_node(self):
         text = "node 0 cpus: 0 1\nnode 0 size: 0 MB\n"
@@ -294,7 +295,7 @@ class TestNumaTopologyCheck:
         ctx = _ctx("a10", tmp_path=tmp_path)
         r = run_checks(["numa_topology"], ctx)[0]
         assert r.status == "PASS"
-        assert r.metrics["numa_nodes_with_cpu"] == 2
+        assert r.metrics["numa_nodes_with_cpu"] == 1
 
 
 # ---------------------------------------------------------------------------

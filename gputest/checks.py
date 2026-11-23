@@ -166,7 +166,7 @@ def fabricmanager(ctx: RunContext) -> Result:
 
 @check("numa_topology", category="preflight")
 def numa_topology(ctx: RunContext) -> Result:
-    """Verify at least 2 NUMA nodes with CPU + memory are present."""
+    """Verify the configured minimum NUMA nodes have CPU and memory."""
     rr = ctx.run([ctx.config["tools"]["numactl"], "--hardware"], mock_fixture=f"numactl_{ctx.sku}.txt")
     if rr.skipped:
         return Result(name="numa_topology", status="SKIP", message="dry-run")

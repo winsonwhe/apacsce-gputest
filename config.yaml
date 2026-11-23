@@ -54,7 +54,7 @@ skus:
     # 24 GB GDDR6, SM 8.6, no NVSwitch/NVLink between GPUs on this shape
     gpu_count: 4            # configurable: 1-4 via --gpu-count or pick a subset with --tests
     memory_tolerance_mib: 512
-    numa_cpu_nodes_min: 2
+    numa_cpu_nodes_min: 1
     gpu_count_min: 1        # minimum acceptable (for partial host testing)
     gpu_model_pattern: "A10"
     mem_mib_per_gpu: 23028  # 24 GB = 23028 MiB
