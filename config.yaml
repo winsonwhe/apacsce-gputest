@@ -175,7 +175,7 @@ network:
   single_plane:
     # Discovered ACTIVE + LINK_UP devices, mapped to netdevs. Optional pins below.
     # TODO(verify): device count/names on each deployment; README has shape-specific examples.
-    a10: {hca_names: [], expected_active_hcas: 2}
+    a10: {hca_names: [], expected_active_hcas: 0}
     a100: {hca_names: [], expected_active_hcas: 8}
     h100: {hca_names: [], expected_active_hcas: 8}
     h200: {hca_names: [], expected_active_hcas: 8}

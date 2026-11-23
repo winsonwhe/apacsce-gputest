@@ -389,6 +389,7 @@ def parse_ip_addresses(text: str) -> dict:
 def parse_gpu_topology(text: str) -> dict:
     """Read the nvidia-smi topo -m matrix header, excluding NIC legend text."""
     for line in text.splitlines():
+        line = re.sub(r'\x1b\[[0-9;]*m', '', line)
         fields = line.split()
         if fields and re.fullmatch(r'GPU\d+', fields[0]):
             gpus = [f for f in fields if re.fullmatch(r'GPU\d+', f)]
