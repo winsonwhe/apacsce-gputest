@@ -40,25 +40,23 @@ pass command output to `parsers.py` when needed, and send their results to
 
 ## Install
 
-Use the installation script on a supported Linux host. It detects Oracle
-Linux/RHEL-family and Ubuntu/Debian-family systems, installs the base system
-packages, clones the repository, creates `.venv`, installs Python
-dependencies, runs the test and lint checks, and configures passwordless SSH.
-
-Run these commands from the directory where the repository should be cloned:
+First clone the repository, then run `install.sh` from its root directory. The
+script detects Oracle Linux/RHEL-family or Ubuntu/Debian-family systems,
+installs the Python packages needed by the project, creates `.venv`, runs the
+unit tests and Ruff checks, and configures passwordless SSH.
 
 ```bash
-curl -fsSL https://raw.githubusercontent.com/winsonwhe/apacsce-gputest/main/install.sh -o install.sh
+git clone https://github.com/winsonwhe/apacsce-gputest.git
+cd apacsce-gputest
 chmod +x install.sh
 ./install.sh
 ```
 
 The script is interactive. It asks for the private key used by the test nodes
 and opens `all_gpu_nodes.txt` in `vim`; enter one node per line before closing
-the editor. The default SSH user is `ubuntu`. The script needs `sudo`, `vim`, network access
-to the package repositories and GitHub, and an interactive terminal.
-If `apacsce-gputest` or the SSH key already exists, the corresponding setup
-step is skipped.
+the editor. The default SSH user is `ubuntu`. It needs `sudo`, `vim`, access to
+the system package repositories, and an interactive terminal. The repository
+must already be cloned; `install.sh` does not clone or update Git repositories.
 
 On GPU hosts, provision the NVIDIA driver/CUDA, Fabric Manager where applicable,
 DCGM, numactl, iproute2 (`ip`, `rdma`, `ss`), perftest, GNU `timeout`, and MPI/UCX

@@ -35,23 +35,21 @@ CLI 通过 `core.py` 调用检查；检查使用统一的命令执行器，必�
 
 ## 安装
 
-请在支持的 Linux 主机上使用安装脚本。脚本会自动识别 Oracle Linux/RHEL
-系列或 Ubuntu/Debian 系列系统，安装基础系统依赖，克隆仓库，创建 `.venv`，安装
-Python 依赖，运行测试和 Ruff 检查，并配置免密 SSH。
-
-在希望克隆仓库的目录中执行：
+请先克隆仓库，再在仓库根目录执行 `install.sh`。脚本会自动识别
+Oracle Linux/RHEL 系列或 Ubuntu/Debian 系列系统，安装项目所需的 Python
+依赖，创建 `.venv`，运行测试和 Ruff 检查，并配置免密 SSH。
 
 ```bash
-curl -fsSL https://raw.githubusercontent.com/winsonwhe/apacsce-gputest/main/install.sh -o install.sh
+git clone https://github.com/winsonwhe/apacsce-gputest.git
+cd apacsce-gputest
 chmod +x install.sh
 ./install.sh
 ```
 
 脚本需要交互式终端。运行时会要求输入测试节点使用的私钥，并使用 `vim`
 打开 `all_gpu_nodes.txt`；请填入每行一个节点后退出编辑器。SSH 默认用户为
-`ubuntu`。运行前需要准备 `sudo` 权限、`vim`、可访问系统软件包仓库和 GitHub
-的网络，以及交互式终端。如果 `apacsce-gputest` 目录或 SSH 私钥已经存在，对应
-步骤会自动跳过。
+`ubuntu`。运行前需要准备 `sudo` 权限、`vim`、可访问系统软件包仓库的网络，
+以及交互式终端。仓库必须预先克隆完成；`install.sh` 不会克隆或更新 Git 仓库。
 
 在 GPU 主机上，需要安装 NVIDIA 驱动和 CUDA、适用时安装 Fabric Manager，以及 DCGM、numactl、iproute2（`ip`、`rdma`、`ss`）、perftest、GNU `timeout` 和支持 SSH 的 MPI/UCX。构建 nccl-tests（`all_reduce_perf` 和 `alltoall_perf`），并在 `config.yaml` 的 `tools` 中配置可执行文件路径。版本要求随 SKU 和部署环境变化；配置中的最低版本和性能下限需要通过真实硬件验证。
 
