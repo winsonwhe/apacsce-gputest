@@ -365,6 +365,11 @@ def run_checks(
             results.append(Result(name=name, status="FAIL", message="check not found in registry"))
             continue
 
+        if name in ctx.sku_config().get('disabled_checks', []):
+            results.append(Result(name=name, status='SKIP',
+                                  message=f'disabled in skus.{ctx.sku}.disabled_checks'))
+            continue
+
         # SKU filter
         if entry["skus"] and ctx.sku not in entry["skus"]:
             results.append(Result(

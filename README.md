@@ -219,7 +219,7 @@ The Category column retains the CLI registry category.
 | preflight | `fabricmanager` | Fabric Manager service state | `systemctl is-active nvidia-fabricmanager` | A100, H100, H200, B200, GB200, B300, GB300; others SKIP |
 | preflight | `kernel_xid` | NVIDIA Xid events in the current boot log | `journalctl -k --no-pager -b` | All |
 | preflight | `ecc_remap` | ECC errors, retired pages and row remapping | `nvidia-smi -q -d ECC,REMAP,RETIRED_PAGES` | All |
-| preflight | `clocks_throttle` | GPU hardware slowdown, thermal and power-brake events | `nvidia-smi --query-gpu=index,clocks_event_reasons.active --format=csv,noheader` (legacy query on failure) | All |
+| preflight | `clocks_throttle` | GPU hardware slowdown, thermal and power-brake events | `nvidia-smi --query-gpu=index,clocks_event_reasons.active --format=csv,noheader` | All |
 | diagnostics | `dcgmi` | DCGM diagnostic suite | `dcgmi diag -r <level> -j` | All |
 | bandwidth | `babelstream` | GPU memory bandwidth workloads | `cuda-stream --device <gpu>` | All |
 | bandwidth | `nvbandwidth` | Configured GPU memory and interconnect bandwidth workloads | `nvbandwidth -t <configured-test>`; optional `mpirun` for multi-node | All have test names; multi-node is GB300 only and requires at least two hosts. See build caveat below. |
@@ -303,6 +303,12 @@ Builds, timeout failures, many GPUs and diagnostic levels can extend these budge
 Quick omits DCGM by default; selecting it explicitly uses r1.
 
 ## Network, placement and checks
+
+The A10 configuration disables RDMA and multi-host NCCL checks through
+`skus.a10.disabled_checks` for deployments without RDMA. They report SKIP even
+when selected with `--tests`; local NCCL and ordinary IP network checks remain
+available. To use RDMA on an A10 deployment, remove the relevant check names from
+the list and configure `network.single_plane.a10` for the actual devices and count.
 
 The OCI shape name never selects the network mode. In auto mode, target IMDS
 `rdmaFabricData.planes` determines it: 4 means multiplanar; absent/1 means

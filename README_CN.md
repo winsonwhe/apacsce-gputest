@@ -158,7 +158,7 @@ python3 -m gputest.cli setup-ssh \
 | preflight | `fabricmanager` | Fabric Manager 服务状态；`systemctl is-active nvidia-fabricmanager` | A100、H100、H200、B200、GB200、B300、GB300；其他 SKIP |
 | preflight | `kernel_xid` | 本次启动的内核日志中的 NVIDIA Xid；`journalctl -k --no-pager -b` | 全部 |
 | preflight | `ecc_remap` | ECC 错误、退役页面和行重映射；`nvidia-smi -q -d ECC,REMAP,RETIRED_PAGES` | 全部 |
-| preflight | `clocks_throttle` | GPU 硬件降速、温度和电源制动事件；查询 `clocks_event_reasons.active`，失败时使用旧查询 | 全部 |
+| preflight | `clocks_throttle` | GPU 硬件降速、温度和电源制动事件；查询 `clocks_event_reasons.active` | 全部 |
 | diagnostics | `dcgmi` | DCGM 诊断；`dcgmi diag -r <level> -j` | 全部 |
 | bandwidth | `babelstream` | GPU 内存带宽；`cuda-stream --device <gpu>` | 全部 |
 | bandwidth | `nvbandwidth` | 配置的 GPU 内存和互连带宽；`nvbandwidth -t <configured-test>` | 多节点仅 GB300 且至少两台主机；见下方构建限制 |

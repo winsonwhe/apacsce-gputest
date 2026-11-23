@@ -50,6 +50,9 @@ baseline:
 skus:
   a10:
     # OCI BM.GPU.A10.4: 4x NVIDIA A10 (Ampere, x86_64)
+    # This deployment has no RDMA; remove checks from this list if RDMA is available.
+    disabled_checks: [rdma_iface, rdma_link, gpudirect_rdma, rdma_perf, rdma_bw,
+                      rdma_lat, rdma_read, rdma_send, gdr_perf, nccl_allreduce, nccl_alltoall]
     # Source: https://docs.nvidia.com/deeplearning/tensorrt/support-matrix/index.html
     # 24 GB GDDR6, SM 8.6, no NVSwitch/NVLink between GPUs on this shape
     gpu_count: 4            # configurable: 1-4 via --gpu-count or pick a subset with --tests

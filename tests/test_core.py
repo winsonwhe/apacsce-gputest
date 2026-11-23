@@ -6,6 +6,8 @@ import json as _json
 import sys
 from pathlib import Path
 
+import pytest
+
 ROOT = Path(__file__).resolve().parent.parent
 sys.path.insert(0, str(ROOT))
 
@@ -267,6 +269,8 @@ class TestSoftwareVersions:
 class TestRdmaLinkCheck:
     def test_pass_a10(self, tmp_path):
         ctx = _ctx("a10", tmp_path=tmp_path)
+        ctx.config['skus']['a10']['disabled_checks'] = []
+        ctx.config['network']['single_plane']['a10']['expected_active_hcas'] = 2
         r = run_checks(["rdma_link"], ctx)[0]
         assert r.status == "PASS", r.message
         assert r.metrics["active_hca_count"] == 2
@@ -274,9 +278,18 @@ class TestRdmaLinkCheck:
     def test_multi_host_rdma_link_skipped_without_nodes(self, tmp_path):
         """rdma_link is a single-host check; should run regardless of node count."""
         ctx = _ctx("a10", nodes=[], tmp_path=tmp_path)
+        ctx.config['skus']['a10']['disabled_checks'] = []
+        ctx.config['network']['single_plane']['a10']['expected_active_hcas'] = 2
         r = run_checks(["rdma_link"], ctx)[0]
         # rdma_link is not multi_host so it should run
         assert r.status != "SKIP" or r.message == "dry-run"
+
+    def test_a10_disabled_rdma_checks_do_not_run_commands(self, tmp_path, monkeypatch):
+        ctx = _ctx("a10", nodes=['n1', 'n2'], tmp_path=tmp_path)
+        names = ctx.sku_config()['disabled_checks']
+        monkeypatch.setattr(RunContext, 'run', lambda *args, **kwargs: pytest.fail('command executed'))
+        results = run_checks(names, ctx)
+        assert all(r.status == 'SKIP' and 'disabled_checks' in r.message for r in results)
 
 
 # ---------------------------------------------------------------------------

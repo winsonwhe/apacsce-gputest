@@ -17,7 +17,11 @@ ROOT = Path(__file__).resolve().parents[1]
 
 
 def context(tmp_path, mode='multiplanar', sku='gb300', **kwargs):
-    return RunContext(load_config(ROOT / 'config.yaml'), sku, ['n1', 'n2'], mock=True,
+    config = load_config(ROOT / 'config.yaml')
+    if sku == 'a10':
+        config['skus']['a10']['disabled_checks'] = []  # Exercise RDMA-capable deployments.
+        config['network']['single_plane']['a10']['expected_active_hcas'] = 2
+    return RunContext(config, sku, ['n1', 'n2'], mock=True,
                       network_mode=mode, results_dir=tmp_path, **kwargs)
 
 
