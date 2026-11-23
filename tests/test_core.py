@@ -14,6 +14,7 @@ from gputest import parsers
 from gputest.core import (
     Result,
     RunContext,
+    RunResult,
     load_config,
     run_checks,
     write_json,
@@ -208,6 +209,33 @@ class TestFabricmanagerCheck:
         r = run_checks(["fabricmanager"], ctx)[0]
         # Should attempt and return some result, not SKIP
         assert r.status in ("PASS", "FAIL", "WARN")
+
+
+class TestSoftwareVersions:
+    def test_a10_omits_fabricmanager_and_uses_configured_nvcc(self, tmp_path, monkeypatch):
+        ctx = _ctx("a10", tmp_path=tmp_path)
+        commands = []
+
+        def run_command(cmd, **kwargs):
+            commands.append(cmd)
+            return RunResult("version", "", 0, 0)
+
+        monkeypatch.setattr(ctx, "run", run_command)
+        result = run_checks(["software_versions"], ctx)[0]
+        assert result.status == "PASS"
+        assert ["/usr/local/cuda-13.2/bin/nvcc", "--version"] in commands
+        assert not any(cmd[0] == "nvidia-fabricmanager" for cmd in commands)
+
+    def test_required_missing_fabricmanager_warns(self, tmp_path, monkeypatch):
+        ctx = _ctx("gb300", tmp_path=tmp_path)
+
+        def run_command(cmd, **kwargs):
+            return RunResult("", "", 127 if cmd[0] == "nvidia-fabricmanager" else 0, 0)
+
+        monkeypatch.setattr(ctx, "run", run_command)
+        result = run_checks(["software_versions"], ctx)[0]
+        assert result.status == "WARN"
+        assert "nvidia-fabricmanager" in result.metrics["unavailable"]
 
 
 # ---------------------------------------------------------------------------

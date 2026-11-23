@@ -360,8 +360,10 @@ def software_versions(ctx: RunContext) -> Result:
         ([ctx.config['tools'].get('ofed_info', 'ofed_info'), '-s'], 'version_ofed.txt'),
         ([ctx.config['tools']['dcgmi'], '--version'], 'version_dcgmi.txt'),
         ([ctx.config['tools'].get('ibv_devinfo', 'ibv_devinfo'), '--version'], 'version_nic.txt'),
-        ([ctx.config['tools'].get('fabricmanager', 'nvidia-fabricmanager'), '--version'], 'version_fabricmanager.txt'),
     ]
+    if ctx.sku_config().get('fabricmanager_required', False):
+        commands.append(([ctx.config['tools'].get('fabricmanager', 'nvidia-fabricmanager'), '--version'],
+                         'version_fabricmanager.txt'))
     raw, versions, missing = [], {}, []
     for cmd, fixture in commands:
         rr = ctx.run(cmd, mock_fixture=fixture)

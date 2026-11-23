@@ -512,7 +512,7 @@ tools:
   scp: scp
   cat: cat
   journalctl: journalctl
-  nvcc: nvcc
+  nvcc: /usr/local/cuda-13.2/bin/nvcc
   ofed_info: ofed_info
   ibv_devinfo: ibv_devinfo
   lsmod: lsmod

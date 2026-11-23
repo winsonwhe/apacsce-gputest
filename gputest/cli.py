@@ -179,7 +179,6 @@ def cmd_run(args, config: dict) -> None:
 
     print(f"gputest run  sku={args.sku}  level={args.level}  "
           f"network={network_mode}  nodes={nodes or ['localhost']}")
-    print(f"Results dir: {results_dir}")
     print()
 
     if detection_error:
@@ -210,7 +209,7 @@ def cmd_run(args, config: dict) -> None:
     if ctx.dry_run:
         print("Raw output: not saved in dry-run mode")
     else:
-        print(f"Raw output directory: {results_dir}")
+        print(f"Raw results: {results_dir}")
     return int(any(r.status == "FAIL" for r in results))
 
 

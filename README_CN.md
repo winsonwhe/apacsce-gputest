@@ -141,7 +141,7 @@ python3 -m gputest.cli setup-ssh \
 
 | 类别 | 检查 | 内容与主要命令 | 条件 |
 |---|---|---|---|
-| preflight | `software_versions` | 驱动、固件和软件版本；`nvidia-smi`、`nvcc`、`ofed_info`、`dcgmi`、`ibv_devinfo`、`nvidia-fabricmanager` | 全部 |
+| preflight | `software_versions` | 驱动、固件和软件版本；`nvidia-smi`、配置的 `nvcc`、`ofed_info`、`dcgmi`、`ibv_devinfo`；仅在机型要求时检查 `nvidia-fabricmanager` | 全部 |
 | preflight | `oca_version` | Oracle Cloud Agent 软件包版本；检查 `/etc/os-release` 和软件包管理器 | 全部；未发现或无法比较的版本为 WARN |
 | preflight | `numa_topology` | CPU 和内存 NUMA 拓扑；`numactl --hardware` | 全部 |
 | preflight | `ssh_connectivity` | SSH 访问和启动端到其他主机的连接 | 全部；多主机 |

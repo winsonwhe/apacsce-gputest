@@ -202,7 +202,7 @@ The Category column retains the CLI registry category.
 
 | Category | Check | Test content | Main command(s) | Target SKUs / conditions |
 |---|---|---|---|---|
-| preflight | `software_versions` | Driver, firmware and installed software versions | `nvidia-smi --query-gpu=driver_version,vbios_version --format=csv,noheader`; `nvcc --version`; `ofed_info -s`; `dcgmi --version`; `ibv_devinfo --version`; `nvidia-fabricmanager --version` | All |
+| preflight | `software_versions` | Driver, firmware and installed software versions | `nvidia-smi --query-gpu=driver_version,vbios_version --format=csv,noheader`; configured `nvcc --version`; `ofed_info -s`; `dcgmi --version`; `ibv_devinfo --version`; `nvidia-fabricmanager --version` when required by the SKU | All |
 | preflight | `oca_version` | Oracle Cloud Agent package version on each host; configurable minimum version | `cat /etc/os-release`; `rpm -q`, `dpkg-query`, and `snap list` for `oracle-cloud-agent` | All; Linux package installations; missing or uncomparable versions WARN |
 | preflight | `numa_topology` | CPU and memory NUMA topology | `numactl --hardware` | All |
 | preflight | `ssh_connectivity` | SSH access and launcher-to-peer connectivity | `hostname` over SSH; `ssh -o BatchMode=yes -o ConnectTimeout=10 -- <peer> hostname` from launcher | All; multi-host |
