@@ -402,6 +402,17 @@ class TestSshConnectivityCheck:
         assert r.status == "FAIL"
         assert "n1" in r.message
 
+    def test_launcher_failure_identifies_peer_and_error(self, tmp_path, monkeypatch):
+        from gputest.core import RunResult
+        ctx = _ctx("a10", nodes=["n1", "n2"], mock=False, tmp_path=tmp_path)
+        ok = RunResult(stdout="host\n", stderr="", returncode=0, elapsed_s=0.0)
+        failure = RunResult(stdout="", stderr="Permission denied (publickey).\n", returncode=255, elapsed_s=0.0)
+        monkeypatch.setattr(ctx, "run_parallel", lambda jobs: [ok, ok, failure])
+        result = run_checks(["ssh_connectivity"], ctx)[0]
+        assert result.status == "FAIL"
+        assert result.metrics["failed_links"] == ["n1 -> n2"]
+        assert "n1 -> n2: Permission denied (publickey)." in result.message
+
 
 # ---------------------------------------------------------------------------
 # setup-ssh CLI

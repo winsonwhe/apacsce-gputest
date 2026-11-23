@@ -134,10 +134,14 @@ def ssh_connectivity(ctx: RunContext) -> Result:
                       tools['hostname']], 'node': ctx.nodes[0], 'mock_fixture': 'ssh_hostname.txt',
               'timeout': ctx.config['executor']['timeout_s']} for n in ctx.nodes[1:]]
     results = ctx.run_parallel(jobs)
-    failed = [job['node'] for job, rr in zip(jobs, results) if rr.returncode]
-    raw = '\n'.join(f'{job["node"]}: {rr.stdout}{rr.stderr}' for job, rr in zip(jobs, results))
+    links = [f'controller -> {n}' for n in ctx.nodes]
+    links += [f'{ctx.nodes[0]} -> {n}' for n in ctx.nodes[1:]]
+    failed = [link for link, rr in zip(links, results) if rr.returncode]
+    details = [f'{link}: {rr.stderr.strip() or f"exit code {rr.returncode}"}'
+               for link, rr in zip(links, results) if rr.returncode]
+    raw = '\n'.join(f'{link}: {rr.stdout}{rr.stderr}' for link, rr in zip(links, results))
     return Result('ssh_connectivity', 'SKIP' if ctx.dry_run else ('FAIL' if failed else 'PASS'),
-                  'dry-run' if ctx.dry_run else (f'SSH broken: {failed}' if failed else 'controller and launcher SSH OK'),
+                  'dry-run' if ctx.dry_run else (f'SSH broken: {"; ".join(details)}' if failed else 'controller and launcher SSH OK'),
                   {'nodes_checked': len(ctx.nodes), 'failed_links': failed}, _raw=raw)
 
 
