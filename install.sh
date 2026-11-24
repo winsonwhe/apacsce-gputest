@@ -302,3 +302,53 @@ if (( DO_SSH )); then
     --user ubuntu \
     --private-key "${SSH_KEY}"
 fi
+
+# Install the same requested dependencies on every node in the inventory.
+# This runs after setup-ssh in the default flow so the shared key and host keys
+# are ready before remote commands are issued.
+if (( DO_SYSTEM || DO_PYTHON )); then
+  if [[ ! -s "${HOST_FILE}" ]]; then
+    echo "[ERROR] ${HOST_FILE} is required to install dependencies on all GPU nodes." >&2
+    exit 1
+  fi
+
+  while IFS= read -r line || [[ -n "${line}" ]]; do
+    line="${line%%#*}"
+    for entry in ${line//,/ }; do
+      [[ -z "${entry}" ]] && continue
+      if [[ "${entry}" == *@* ]]; then
+        target="${entry}"
+      else
+        target="ubuntu@${entry}"
+      fi
+      echo "[INFO] Installing requested dependencies on ${target}"
+      ssh -o BatchMode=yes "${target}" 'bash -s' -- \
+        "${DO_SYSTEM}" "${DO_PYTHON}" <<'REMOTE_INSTALL'
+set -euo pipefail
+do_system="$1"
+do_python="$2"
+if (( do_system )); then
+  . /etc/os-release
+  case "${ID:-}" in
+    ubuntu|debian)
+      sudo apt-get update
+      sudo apt-get install -y python3-pip python3-venv git make cmake cargo curl
+      ;;
+    rhel|centos|rocky|almalinux|ol|oraclelinux|fedora)
+      pkg_mgr=dnf
+      command -v dnf >/dev/null 2>&1 || pkg_mgr=yum
+      sudo "${pkg_mgr}" install -y python3-pip git make cmake cargo curl
+      ;;
+    *)
+      echo "Unsupported remote OS: ${PRETTY_NAME:-unknown} (id=${ID:-unknown})" >&2
+      exit 1
+      ;;
+  esac
+fi
+if (( do_python )); then
+  python3 -m pip install --user PyYAML==6.0.2 click==8.1.2 pytest ruff
+fi
+REMOTE_INSTALL
+    done
+  done < "${HOST_FILE}"
+fi
