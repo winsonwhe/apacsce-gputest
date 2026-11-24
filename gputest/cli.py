@@ -222,6 +222,7 @@ def cmd_setup_ssh(args, config: dict) -> None:
     key = Path(args.private_key).expanduser() if args.private_key else ssh_dir / 'id_ed25519'
     public_key = Path(str(key) + '.pub')
     targets = [f'{users[n]}@{n}' if n in users else n for n in nodes]
+    succeeded = []
     failed = []
 
     def execute(cmd):
@@ -269,6 +270,8 @@ def cmd_setup_ssh(args, config: dict) -> None:
                           'chmod 600 ~/.ssh/known_hosts')])
         if any(rr.returncode for rr in (prepare_dir, copy_key, copy_pub, prepare, scan, trust)):
             failed.append(target)
+        else:
+            succeeded.append(target)
         if not dry_run and scan.returncode == 0 and scan.stdout.strip():
             ssh_dir.mkdir(mode=0o700, parents=True, exist_ok=True)
             path = ssh_dir / 'known_hosts'
@@ -278,7 +281,10 @@ def cmd_setup_ssh(args, config: dict) -> None:
                 with path.open('a') as stream:
                     stream.write('\n'.join(extra) + '\n')
                 path.chmod(0o600)
-    print('Dry-run only: no keys changed.' if dry_run else f'SSH setup failures: {sorted(set(failed))}')
+    print(f'SSH setup successes: {sorted(set(succeeded))}')
+    print(f'SSH setup failures: {sorted(set(failed))}')
+    if dry_run:
+        print('Dry-run only: no keys changed.')
     print('All selected nodes receive the same private/public key pair and peer host keys.')
     return int(bool(failed))
 
