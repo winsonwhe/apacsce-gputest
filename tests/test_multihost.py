@@ -46,8 +46,8 @@ def test_rdma_read_send_and_gdr_commands(tmp_path, capsys):
     results = run_checks(['rdma_read', 'rdma_send', 'gdr_perf'], ctx)
     assert all(result.status == 'SKIP' for result in results)
     output = capsys.readouterr().out
-    assert '/usr/bin/ib_read_bw' in output
-    assert '/usr/bin/ib_send_bw' in output
+    assert '/opt/oci-hpc/perftest/bin/ib_read_bw' in output
+    assert '/opt/oci-hpc/perftest/bin/ib_send_bw' in output
     assert '--use_cuda' in output
 
 
@@ -145,8 +145,8 @@ def test_dry_run_all_rails_and_env_no_execution(tmp_path, capsys, monkeypatch):
     results = run_checks(['rdma_perf', 'nccl_allreduce', 'nccl_alltoall'], ctx)
     assert all(r.status == 'SKIP' for r in results), [r.message for r in results]
     output = capsys.readouterr().out
-    assert output.count('/usr/bin/ib_write_bw') == 8
-    assert output.count('/usr/bin/ib_write_lat') == 8
+    assert output.count('/opt/oci-hpc/perftest/bin/ib_write_bw') == 8
+    assert output.count('/opt/oci-hpc/perftest/bin/ib_write_lat') == 8
     assert 'vrf_r3 numactl -N 1' in output
     assert 'NCCL_TUNING_VARIANT=final_small_cta16_qps16' in output
     assert 'UCX_NET_DEVICES=eth0' in output
