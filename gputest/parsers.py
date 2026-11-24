@@ -200,10 +200,13 @@ def parse_numactl_hardware(text: str) -> list[dict]:
 
 
 def parse_nvbandwidth(text: str, test_name: str) -> dict:
-    """Read SUM <test> <value> (upstream) or SUM <value> GB/s."""
-    rows, total = [], None
+    """Read SUM output and waived tests from nvbandwidth."""
+    rows, total, waived_reason = [], None, None
     active = False
     for line in text.splitlines():
+        waived = re.match(rf'^Waived\s+{re.escape(test_name)}:\s*(.+)$', line)
+        if waived:
+            waived_reason = waived[1].strip() or 'nvbandwidth waived the test'
         if line.startswith('Running '):
             # Older captured output ends in " benchmark".
             active = line in (f'Running {test_name}.', f'Running {test_name} benchmark')
@@ -214,7 +217,8 @@ def parse_nvbandwidth(text: str, test_name: str) -> dict:
             row = re.match(r'(.+):\s+([\d.]+)\s+GB/s', line)
             if row:
                 rows.append({'label': row[1], 'gbs': float(row[2])})
-    return {'sum_gbs': total, 'rows': rows}
+    return {'sum_gbs': total, 'rows': rows, 'waived': waived_reason is not None,
+            'waived_reason': waived_reason}
 
 
 def parse_gpu_burn(text: str) -> dict:

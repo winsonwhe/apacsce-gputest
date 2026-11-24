@@ -162,6 +162,15 @@ class TestParseNvbandwidth:
         assert r["sum_gbs"] is None
         assert r["rows"] == []
 
+    def test_waived_test(self):
+        r = parsers.parse_nvbandwidth(
+            "Waived device_to_device_bidirectional_memcpy_read_ce: "
+            "no accessible peer GPU pairs (P2P not supported between any devices)\n",
+            "device_to_device_bidirectional_memcpy_read_ce",
+        )
+        assert r["waived"] is True
+        assert "P2P not supported" in r["waived_reason"]
+
 
 # ---------------------------------------------------------------------------
 # nvidia_smi check

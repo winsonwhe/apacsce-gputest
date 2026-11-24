@@ -90,8 +90,9 @@ dependencies are required when running hardware checks for real. `git`, `make`,
 CMake and `nvcc` are also needed when configured benchmark sources must be built.
 
 `install.sh` installs missing gpu-burn, CUDA BabelStream (`cuda-stream`),
-nvbandwidth and gpu-fryer builds below `/opt`, and skips tools already available
-in the environment. It also installs Git, make, CMake and Cargo. CUDA (`nvcc`) must be
+nvbandwidth and gpu-fryer builds below `/opt`. BabelStream is rebuilt for the
+local GPU; other tools already available in the environment are skipped. It also
+installs Git, make, CMake and Cargo. CUDA (`nvcc`) must be
 installed already. Local gputest runs can also clone/build missing gpu-burn,
 nvbandwidth and BabelStream sources when `build_if_missing: true`. For SSH
 targets, provision binaries beforehand at identical absolute paths on every host.
@@ -99,6 +100,30 @@ gpu-burn needs `compare.ptx` beside its binary. gpu-fryer is built from its Rust
 source with the Rustup `1.85.0` toolchain and is installed as
 `/opt/gpu-fryer/bin/gpu-fryer`. If Rustup is missing, the GPU tools module
 installs it from the official Rust installer.
+
+The installer detects the local GPU compute capability using `nvidia-smi` and
+rebuilds BabelStream for that architecture, including when a binary already
+exists. Run it on each GPU host:
+
+```bash
+./install.sh --gpu-tools
+```
+
+All GPUs on a host must have the same compute capability. If detection is
+unavailable, set `CUDA_ARCH` explicitly (for example, `CUDA_ARCH=sm_86` for A10).
+Alternatively, if an A10 reports `no kernel image is available for execution
+on the device`, rebuild the binary directly using the appropriate CUDA compiler path:
+
+```bash
+sudo cmake -S /opt/BabelStream -B /opt/BabelStream/build \
+  -DMODEL=cuda -DCUDA_ARCH=sm_86 \
+  -DCMAKE_CUDA_COMPILER=/usr/local/cuda-13.2/bin/nvcc
+sudo cmake --build /opt/BabelStream/build --clean-first -j 4
+/opt/BabelStream/build/cuda-stream --device 0
+```
+
+Ensure `tools.babelstream` points to that binary on each target host. An existing
+binary is reused even when the SKU-specific architecture in `config.yaml` differs.
 
 The installer accepts modules when a staged setup is needed. Run
 `./install.sh --help` for the complete list. With no options it runs every

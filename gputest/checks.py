@@ -633,6 +633,7 @@ def nvbandwidth(ctx: RunContext) -> Result:
     if problem:
         return problem
     metrics, issues, raw = {}, [], []
+    skipped = []
     uncalibrated = False
     for name in names:
         cmd = [tool, '-t', name]
@@ -650,9 +651,14 @@ def nvbandwidth(ctx: RunContext) -> Result:
         if ctx.dry_run:
             continue
         raw.append(rr.stdout + rr.stderr)
-        value = parsers.parse_nvbandwidth(rr.stdout, name)['sum_gbs']
+        parsed = parsers.parse_nvbandwidth(rr.stdout, name)
+        value = parsed['sum_gbs']
         metrics[name + '_sum_gbs'] = value
         threshold = sku.get('thresholds', {}).get(name)
+        if parsed['waived']:
+            skipped.append(name)
+            metrics[name + '_waived_reason'] = parsed['waived_reason']
+            continue
         if threshold is None:
             uncalibrated = True
         if value is None:
@@ -661,9 +667,19 @@ def nvbandwidth(ctx: RunContext) -> Result:
               (threshold is not None and value < threshold)):
             issues.append(f'{name}: {value:.1f} GB/s below configured minimum')
     metrics['uncalibrated'] = uncalibrated
-    return Result('nvbandwidth', 'SKIP' if ctx.dry_run else ('FAIL' if issues else ('WARN' if uncalibrated else 'PASS')),
-                  'dry-run' if ctx.dry_run else ('; '.join(issues) or
-                  ('some SUM thresholds unset' if uncalibrated else 'all SUM thresholds met')),
+    if ctx.dry_run:
+        status, message = 'SKIP', 'dry-run'
+    elif issues:
+        status, message = 'FAIL', '; '.join(issues)
+    elif skipped and len(skipped) == len(names):
+        status, message = 'SKIP', 'all configured tests waived: ' + ', '.join(skipped)
+    elif uncalibrated or skipped:
+        status = 'WARN'
+        message = 'some SUM thresholds unset' if uncalibrated else 'waived tests: ' + ', '.join(skipped)
+    else:
+        status, message = 'PASS', 'all SUM thresholds met'
+    return Result('nvbandwidth', status,
+                  message,
                   metrics, _raw='\n'.join(raw))
 
 
@@ -684,6 +700,9 @@ def babelstream(ctx: RunContext) -> Result:
                      mock_fixture=f'babelstream_{ctx.sku}.txt')
         problem = _command_problem('babelstream', rr)
         if problem and not ctx.dry_run:
+            if 'no kernel image is available for execution on the device' in (rr.stdout + rr.stderr).lower():
+                problem.message += (f'; CUDA binary may not support this GPU; rebuild BabelStream '
+                                    f'for {cfg["cuda_arch"][ctx.sku]}')
             return problem
         if ctx.dry_run:
             continue

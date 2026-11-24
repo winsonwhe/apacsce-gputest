@@ -24,14 +24,14 @@ Install and configure gputest. With no options, all modules run in order.
 
 Modules:
   -d, --system-deps   Install OS packages required by Python and GPU builds.
-  -g, --gpu-tools     Build missing gpu-burn, cuda-stream, nvbandwidth and gpu-fryer under /opt.
+  -g, --gpu-tools     Build GPU tools under /opt, include gpu-burn, cuda-stream, nvbandwidth and gpu-fryer;
   -p, --python        Create/update .venv, install Python dependencies, pytest and Ruff, then run checks.
   -s, --ssh           Collect the SSH key and all_gpu_nodes.txt, then run setup-ssh.
   -a, --all           Run all modules (the default).
   -h, --help          Show this help and exit.
 
 Environment:
-  CUDA_ARCH=sm_86 ./install.sh --gpu-tools  # override BabelStream's CUDA architecture
+  CUDA_ARCH=sm_86 ./install.sh --gpu-tools  # optional BabelStream architecture override
   NVCC_PATH=/usr/local/cuda-13.2/bin/nvcc ./install.sh --gpu-tools
 
 Examples:
@@ -136,6 +136,32 @@ if (( DO_SYSTEM )); then
   fi
 fi
 
+detect_cuda_arch() {
+  if [[ -n "${CUDA_ARCH:-}" ]]; then
+    printf '%s\n' "${CUDA_ARCH}"
+    return
+  fi
+  local caps cap arch=""
+  if ! caps="$(nvidia-smi --query-gpu=compute_cap --format=csv,noheader 2>/dev/null)" || [[ -z "${caps}" ]]; then
+    echo "[ERROR] Cannot detect GPU compute capability with nvidia-smi; set CUDA_ARCH explicitly." >&2
+    return 1
+  fi
+  while IFS= read -r cap; do
+    cap="${cap//[[:space:]]/}"
+    if [[ ! "${cap}" =~ ^([0-9]+)\.([0-9]+)$ ]]; then
+      echo "[ERROR] Invalid GPU compute capability: ${cap}" >&2
+      return 1
+    fi
+    cap="sm_${BASH_REMATCH[1]}${BASH_REMATCH[2]}"
+    if [[ -n "${arch}" && "${arch}" != "${cap}" ]]; then
+      echo "[ERROR] Mixed GPU compute capabilities are not supported by this BabelStream build." >&2
+      return 1
+    fi
+    arch="${cap}"
+  done <<< "${caps}"
+  printf '%s\n' "${arch}"
+}
+
 install_gpu_tools() {
   local name="$1"
   local source_dir="$2"
@@ -143,11 +169,14 @@ install_gpu_tools() {
   local binary="$4"
   local build_type="$5"
 
-  if command -v "${name}" >/dev/null 2>&1; then
+  local babelstream_arch=""
+  if [[ "${name}" == "cuda-stream" ]]; then
+    babelstream_arch="$(detect_cuda_arch)" || return 1
+    echo "[INFO] Building BabelStream for ${babelstream_arch}."
+  elif command -v "${name}" >/dev/null 2>&1; then
     echo "[INFO] ${name} already available at $(command -v "${name}"); skipping installation."
     return
-  fi
-  if [[ -x "${binary}" ]]; then
+  elif [[ -x "${binary}" ]]; then
     echo "[INFO] ${name} already exists at ${binary}; skipping installation."
     sudo ln -sf "${binary}" "/usr/local/bin/${name}"
     return
@@ -208,10 +237,14 @@ install_gpu_tools() {
     cmake)
       local cmake_args=(-DCMAKE_CUDA_COMPILER="${nvcc_path}" -DMODEL=cuda)
       if [[ "${name}" == "cuda-stream" ]]; then
-        cmake_args+=(-DCUDA_ARCH="${CUDA_ARCH:-sm_103}")
+        cmake_args+=(-DCUDA_ARCH="${babelstream_arch}")
       fi
       sudo cmake -S "${source_dir}" -B "${source_dir}/build" "${cmake_args[@]}"
-      sudo cmake --build "${source_dir}/build" -j "$(getconf _NPROCESSORS_ONLN 2>/dev/null || echo 2)"
+      if [[ "${name}" == "cuda-stream" ]]; then
+        sudo cmake --build "${source_dir}/build" --clean-first -j "$(getconf _NPROCESSORS_ONLN 2>/dev/null || echo 2)"
+      else
+        sudo cmake --build "${source_dir}/build" -j "$(getconf _NPROCESSORS_ONLN 2>/dev/null || echo 2)"
+      fi
       ;;
     cargo)
       local cargo_bin_dir="$(dirname "${cargo_cmd}")"

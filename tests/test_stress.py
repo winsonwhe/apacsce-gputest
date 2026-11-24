@@ -185,6 +185,16 @@ def test_babelstream_incomplete_output_fails(ctx, monkeypatch):
     assert checks.babelstream(ctx).status == 'FAIL'
 
 
+def test_babelstream_incompatible_cuda_binary(ctx, monkeypatch):
+    ctx.sku = 'a10'
+    output = 'Error: no kernel image is available for execution on the device'
+    monkeypatch.setattr(ctx, 'run', lambda *a, **kw: RunResult('', output, 1, 0))
+    result = checks.babelstream(ctx)
+    assert result.status == 'FAIL'
+    assert 'sm_86' in result.message
+    assert output in result._raw
+
+
 def test_nvbandwidth_threshold_and_missing_sum(ctx, monkeypatch):
     ctx.sku = 'a10'
     monkeypatch.setattr(ctx, 'run', lambda *a, **kw: success(fixture('nvbandwidth_a10.txt')))
@@ -194,6 +204,22 @@ def test_nvbandwidth_threshold_and_missing_sum(ctx, monkeypatch):
     assert checks.nvbandwidth(ctx).status == 'FAIL'
     monkeypatch.setattr(ctx, 'run', lambda *a, **kw: success(''))
     assert checks.nvbandwidth(ctx).status == 'FAIL'
+
+
+def test_nvbandwidth_waived_p2p_is_skipped(ctx, monkeypatch):
+    ctx.sku = 'a10'
+    def execute(cmd, **kwargs):
+        test_name = cmd[-1]
+        return success(
+            f'Waived {test_name}: no accessible peer GPU pairs '
+            '(P2P not supported between any devices)\n'
+        )
+    monkeypatch.setattr(ctx, 'run', execute)
+    result = checks.nvbandwidth(ctx)
+    assert result.status == 'SKIP'
+    assert 'waived' in result.message
+    assert 'P2P not supported' in result.metrics[
+        'device_to_device_bidirectional_memcpy_read_ce_waived_reason']
 
 
 @pytest.mark.parametrize(('level', 'diag_level'), [('basic', 1), ('standard', 2), ('extended', 3)])
