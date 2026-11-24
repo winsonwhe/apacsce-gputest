@@ -1,4 +1,4 @@
-# gputest：GPU 验证工具包
+# GPUTEST：GPU 验证工具包
 
 [English](README.md) · [详细中文文档](doc/advanced-guide_CN.md)
 
@@ -25,7 +25,7 @@ cd apacsce-gputest
 ./install.sh
 ```
 
-按需使用 `./install.sh --python`、`--system-deps`、`--gpu-tools` 或 `--ssh`。实际硬件测试还需要 NVIDIA 驱动/CUDA、DCGM、`numactl`、iproute2、perftest、MPI/UCX 和 nccl-tests（按测试类型准备）。详见[安装说明](doc/installation_CN.md)。
+按需使用 `./install.sh --python`、`--system-deps`、`--gpu-tools` 或 `--ssh`。无 GPU 的跳板机使用 `./install.sh --control-plane --system-deps --python --ssh --gpu-tools`，GPU 工具会在清单中的远程节点构建。实际硬件测试还需要 NVIDIA 驱动/CUDA、DCGM、`numactl`、iproute2、perftest、MPI/UCX 和 nccl-tests（按测试类型准备）。详见[安装说明](doc/installation_CN.md)。
 
 ## 快速开始
 

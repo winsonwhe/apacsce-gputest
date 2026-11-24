@@ -1,4 +1,4 @@
-# gputest: GPU validation toolkit
+# GPUTEST: GPU validation toolkit
 
 [中文文档](README_CN.md) · [Detailed guide](doc/advanced-guide.md)
 
@@ -25,7 +25,7 @@ cd apacsce-gputest
 ./install.sh
 ```
 
-Use modules when needed: `./install.sh --python`, `--system-deps`, `--gpu-tools`, or `--ssh`. Hardware runs also need the NVIDIA driver/CUDA, DCGM, `numactl`, `iproute2`, perftest, MPI/UCX and nccl-tests as applicable. See [installation details](doc/installation.md).
+Use modules when needed: `./install.sh --python`, `--system-deps`, `--gpu-tools`, or `--ssh`. From a GPU-less jump host, use `./install.sh --control-plane --system-deps --python --ssh --gpu-tools` so GPU tools are built on the remote inventory nodes. Hardware runs also need the NVIDIA driver/CUDA, DCGM, `numactl`, `iproute2`, perftest, MPI/UCX and nccl-tests as applicable. See [installation details](doc/installation.md).
 
 ## Quick start
 

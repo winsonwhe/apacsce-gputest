@@ -282,11 +282,16 @@ def make_handler(controller):
 
 def main():
     parser = argparse.ArgumentParser(description='Serve the gputest control center on localhost')
+    parser.add_argument('--host', default='127.0.0.1',
+                        help='Listen address; use 0.0.0.0 only behind a firewall or trusted network')
     parser.add_argument('--port', type=int, default=8080)
     parser.add_argument('--state-dir', default=str(ROOT / 'results' / 'controller'))
     args = parser.parse_args()
-    server = ThreadingHTTPServer(('127.0.0.1', args.port), make_handler(Controller(args.state_dir)))
-    print(f'gputest controller listening on http://127.0.0.1:{args.port}', flush=True)
+    if not 1 <= args.port <= 65535:
+        parser.error('--port must be between 1 and 65535')
+    server = ThreadingHTTPServer((args.host, args.port), make_handler(Controller(args.state_dir)))
+    display_host = '127.0.0.1' if args.host in ('0.0.0.0', '::') else args.host
+    print(f'gputest controller listening on http://{display_host}:{args.port}', flush=True)
     try:
         server.serve_forever()
     except KeyboardInterrupt:

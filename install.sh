@@ -27,12 +27,18 @@ Modules:
   -g, --gpu-tools     Build GPU tools under /opt, include gpu-burn, cuda-stream, nvbandwidth and gpu-fryer;
   -p, --python        Create/update .venv, install Python dependencies, pytest and Ruff, then run checks.
   -s, --ssh           Collect the SSH key and all_gpu_nodes.txt, then run setup-ssh.
+  --control-plane     Skip local GPU builds; deploy selected modules to GPU nodes.
   -a, --all           Run all modules (the default).
   -h, --help          Show this help and exit.
 
 Environment:
   CUDA_ARCH=sm_86 ./install.sh --gpu-tools  # optional BabelStream architecture override
   NVCC_PATH=/usr/local/cuda-13.2/bin/nvcc ./install.sh --gpu-tools
+
+Control-plane installation (for a jump host without a GPU):
+  ./install.sh --control-plane --system-deps --python --ssh --gpu-tools
+    prepares the control host and builds GPU tools on every host in
+    all_gpu_nodes.txt; the jump host does not need CUDA or nvidia-smi.
 
 Examples:
   ./install.sh                 # install everything
@@ -46,6 +52,7 @@ DO_SYSTEM=0
 DO_GPU_TOOLS=0
 DO_PYTHON=0
 DO_SSH=0
+CONTROL_PLANE=0
 if [[ "${GPUTEST_GPU_TOOLS_WORKER:-0}" == "1" ]]; then
   DO_GPU_TOOLS=1
 elif [[ "$#" -eq 0 ]]; then
@@ -60,6 +67,7 @@ while [[ "$#" -gt 0 ]]; do
     -g|--gpu-tools) DO_GPU_TOOLS=1 ;;
     -p|--python) DO_PYTHON=1 ;;
     -s|--ssh) DO_SSH=1 ;;
+    --control-plane) CONTROL_PLANE=1 ;;
     -a|--all)
       DO_SYSTEM=1
       DO_GPU_TOOLS=1
@@ -127,6 +135,9 @@ if (( DO_SYSTEM )); then
   esac
 
   BUILD_PACKAGES=(git make cmake cargo curl)
+  if (( CONTROL_PLANE )); then
+    BUILD_PACKAGES=(git curl)
+  fi
   echo "[INFO] Detected OS: ${OS_PRETTY_NAME} (package manager: ${PKG_MGR})"
   if [[ "${PKG_MGR}" == "apt-get" ]]; then
     sudo apt-get update
@@ -279,7 +290,9 @@ install_gpu_tools() {
   echo "[INFO] Installed ${name} at ${binary}"
 }
 
-if (( DO_GPU_TOOLS )); then
+if (( DO_GPU_TOOLS )) && (( CONTROL_PLANE )); then
+  echo "[INFO] Control plane: skipping local GPU tool builds."
+elif (( DO_GPU_TOOLS )); then
   install_gpu_tools "gpu_burn" "/opt/gpu-burn" \
     "https://github.com/wilicc/gpu-burn.git" "/opt/gpu-burn/gpu_burn" make
   install_gpu_tools "cuda-stream" "/opt/BabelStream" \
