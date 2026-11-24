@@ -73,7 +73,16 @@ chmod +x install.sh
 
 模拟运行只需要 Python、PyYAML 和项目测试工具。实际硬件检查需要 GPU 主机依赖。需要构建基准测试源码时，还需要 `git`、`make`、CMake 和 `nvcc`。
 
-设置 `build_if_missing: true` 后，本地主机可在缺少源码时克隆并构建 gpu-burn、nvbandwidth 和 BabelStream，但不会安装系统软件包。SSH 目标主机上的可执行文件须提前部署到相同的绝对路径；gpu-burn 的 `compare.ptx` 须与可执行文件位于同一目录。
+`install.sh` 会将缺失的 gpu-burn、CUDA BabelStream（`cuda-stream`）、nvbandwidth
+和 gpu-fryer 构建并安装到 `/opt` 下；如果环境中已经有对应工具则跳过，并安装
+Git、make 和 CMake。CUDA（`nvcc`）需要预先安装。设置 `build_if_missing: true` 后，
+本地主机运行 gputest 时也可在缺少源码时克隆并构建 gpu-burn、nvbandwidth 和
+BabelStream。SSH 目标主机上的可执行文件须提前部署到相同的绝对路径；gpu-burn 的
+`compare.ptx` 须与可执行文件位于同一目录。
+
+如果需要分步执行，可运行 `./install.sh --help` 查看选项。无参数时执行全部模块；
+`--system-deps`、`--gpu-tools`、`--python` 和 `--ssh` 分别选择系统依赖、GPU 工具、
+Python 环境与检查、SSH 配置，也可以组合使用，例如 `./install.sh --python --ssh`。
 
 ## 快速开始
 

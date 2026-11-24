@@ -89,11 +89,19 @@ Mock runs only need Python, PyYAML and the project test tools. GPU-host
 dependencies are required when running hardware checks for real. `git`, `make`,
 CMake and `nvcc` are also needed when configured benchmark sources must be built.
 
-Local gpu-burn, nvbandwidth and BabelStream can clone/build missing sources when
-`build_if_missing: true`. Git, make/CMake and nvcc must already exist; system
-packages are never installed. For SSH targets, provision binaries beforehand at
-identical absolute paths on every host. gpu-burn needs `compare.ptx` beside its
-binary. 
+`install.sh` installs missing gpu-burn, CUDA BabelStream (`cuda-stream`),
+nvbandwidth and gpu-fryer builds below `/opt`, and skips tools already available
+in the environment. It also installs Git, make and CMake. CUDA (`nvcc`) must be
+installed already. Local gputest runs can also clone/build missing gpu-burn,
+nvbandwidth and BabelStream sources when `build_if_missing: true`. For SSH
+targets, provision binaries beforehand at identical absolute paths on every host.
+gpu-burn needs `compare.ptx` beside its binary.
+
+The installer accepts modules when a staged setup is needed. Run
+`./install.sh --help` for the complete list. With no options it runs every
+module; `--system-deps`, `--gpu-tools`, `--python`, and `--ssh` select system
+packages, GPU tools, the Python environment/checks, and SSH setup respectively.
+Options can be combined, for example `./install.sh --python --ssh`.
 
 ## Quick start
 

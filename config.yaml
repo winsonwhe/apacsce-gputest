@@ -487,10 +487,10 @@ tools:
   git: git
   make: make
   cmake: cmake
-  ib_write_bw: /usr/bin/ib_write_bw
-  ib_write_lat: /usr/bin/ib_write_lat
-  ib_read_bw: /usr/bin/ib_read_bw
-  ib_send_bw: /usr/bin/ib_send_bw
+  ib_write_bw: /opt/oci-hpc/perftest/bin/ib_write_bw
+  ib_write_lat: /opt/oci-hpc/perftest/bin/ib_write_lat
+  ib_read_bw: /opt/oci-hpc/perftest/bin/ib_read_bw
+  ib_send_bw: /opt/oci-hpc/perftest/bin/ib_send_bw
   nvidia_smi: nvidia-smi
   gpu-burn: ./tools/gpu-burn/gpu_burn
   babelstream: ./tools/BabelStream/build/cuda-stream
@@ -504,8 +504,8 @@ tools:
   rdma: rdma
   numactl: numactl
   curl: curl
-  allreduce_perf: ./tools/nccl-tests/build/all_reduce_perf
-  alltoall_perf: ./tools/nccl-tests/build/alltoall_perf
+  allreduce_perf: /opt/oci-hpc/nccl-tests/bin/all_reduce_perf
+  alltoall_perf:  /opt/oci-hpc/nccl-tests/bin/alltoall_perf
   systemctl: systemctl
   ssh: ssh
   hostname: hostname
