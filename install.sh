@@ -6,7 +6,11 @@
 
 set -euo pipefail
 
-SCRIPT_DIR="$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")" && pwd)"
+if [[ "${GPUTEST_GPU_TOOLS_WORKER:-0}" == "1" ]]; then
+  SCRIPT_DIR="${PWD}"
+else
+  SCRIPT_DIR="$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")" && pwd)"
+fi
 SSH_DIR="${HOME}/.ssh"
 SSH_KEY="${SSH_DIR}/id_rsa"
 HOST_FILE="all_gpu_nodes.txt"
@@ -42,7 +46,9 @@ DO_SYSTEM=0
 DO_GPU_TOOLS=0
 DO_PYTHON=0
 DO_SSH=0
-if [[ "$#" -eq 0 ]]; then
+if [[ "${GPUTEST_GPU_TOOLS_WORKER:-0}" == "1" ]]; then
+  DO_GPU_TOOLS=1
+elif [[ "$#" -eq 0 ]]; then
   DO_SYSTEM=1
   DO_GPU_TOOLS=1
   DO_PYTHON=1
@@ -73,7 +79,8 @@ while [[ "$#" -gt 0 ]]; do
   shift
 done
 
-if [[ ! -f "${SCRIPT_DIR}/requirements.txt" || ! -d "${SCRIPT_DIR}/gputest" ]]; then
+if [[ "${GPUTEST_GPU_TOOLS_WORKER:-0}" != "1" && \
+      ( ! -f "${SCRIPT_DIR}/requirements.txt" || ! -d "${SCRIPT_DIR}/gputest" ) ]]; then
   echo "[ERROR] Run install.sh from a cloned apacsce-gputest repository." >&2
   exit 1
 fi
@@ -306,7 +313,7 @@ fi
 # Install the same requested dependencies on every node in the inventory.
 # This runs after setup-ssh in the default flow so the shared key and host keys
 # are ready before remote commands are issued.
-if (( DO_SYSTEM || DO_PYTHON )); then
+if (( DO_SYSTEM )); then
   if [[ ! -s "${HOST_FILE}" ]]; then
     echo "[ERROR] ${HOST_FILE} is required to install dependencies on all GPU nodes." >&2
     exit 1
@@ -323,32 +330,52 @@ if (( DO_SYSTEM || DO_PYTHON )); then
       fi
       echo "[INFO] Installing requested dependencies on ${target}"
       ssh -o BatchMode=yes "${target}" 'bash -s' -- \
-        "${DO_SYSTEM}" "${DO_PYTHON}" <<'REMOTE_INSTALL'
+        <<'REMOTE_INSTALL'
 set -euo pipefail
-do_system="$1"
-do_python="$2"
-if (( do_system )); then
-  . /etc/os-release
-  case "${ID:-}" in
-    ubuntu|debian)
-      sudo apt-get update
-      sudo apt-get install -y python3-pip python3-venv git make cmake cargo curl
-      ;;
-    rhel|centos|rocky|almalinux|ol|oraclelinux|fedora)
-      pkg_mgr=dnf
-      command -v dnf >/dev/null 2>&1 || pkg_mgr=yum
-      sudo "${pkg_mgr}" install -y python3-pip git make cmake cargo curl
-      ;;
-    *)
-      echo "Unsupported remote OS: ${PRETTY_NAME:-unknown} (id=${ID:-unknown})" >&2
-      exit 1
-      ;;
-  esac
+. /etc/os-release
+case "${ID:-}" in
+  ubuntu|debian)
+    sudo apt-get update
+    sudo apt-get install -y git make cmake curl
+    ;;
+  rhel|centos|rocky|almalinux|ol|oraclelinux|fedora)
+    pkg_mgr=dnf
+    command -v dnf >/dev/null 2>&1 || pkg_mgr=yum
+    sudo "${pkg_mgr}" install -y git make cmake curl
+    ;;
+  *)
+    echo "Unsupported remote OS: ${PRETTY_NAME:-unknown} (id=${ID:-unknown})" >&2
+    exit 1
+    ;;
+esac
+if ! command -v rustup >/dev/null 2>&1; then
+  curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs \
+    | sh -s -- -y --profile minimal --default-toolchain none
+  export PATH="${HOME}/.cargo/bin:${PATH}"
 fi
-if (( do_python )); then
-  python3 -m pip install --user PyYAML==6.0.2 click==8.1.2 pytest ruff
-fi
+rustup toolchain install 1.85.0
+rustup run 1.85.0 cargo --version
 REMOTE_INSTALL
+    done
+  done < "${HOST_FILE}"
+fi
+
+if (( DO_GPU_TOOLS )) && [[ "${GPUTEST_GPU_TOOLS_WORKER:-0}" != "1" ]]; then
+  if [[ ! -s "${HOST_FILE}" ]]; then
+    echo "[ERROR] ${HOST_FILE} is required to build GPU tools on all GPU nodes." >&2
+    exit 1
+  fi
+  while IFS= read -r line || [[ -n "${line}" ]]; do
+    line="${line%%#*}"
+    for entry in ${line//,/ }; do
+      [[ -z "${entry}" ]] && continue
+      if [[ "${entry}" == *@* ]]; then
+        target="${entry}"
+      else
+        target="ubuntu@${entry}"
+      fi
+      echo "[INFO] Building GPU tools on ${target}"
+      ssh -o BatchMode=yes "${target}" 'GPUTEST_GPU_TOOLS_WORKER=1 bash -s' < "${BASH_SOURCE[0]}"
     done
   done < "${HOST_FILE}"
 fi
