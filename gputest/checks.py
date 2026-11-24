@@ -671,11 +671,10 @@ def nvbandwidth(ctx: RunContext) -> Result:
         status, message = 'SKIP', 'dry-run'
     elif issues:
         status, message = 'FAIL', '; '.join(issues)
-    elif skipped and len(skipped) == len(names):
-        status, message = 'SKIP', 'all configured tests waived: ' + ', '.join(skipped)
-    elif uncalibrated or skipped:
-        status = 'WARN'
-        message = 'some SUM thresholds unset' if uncalibrated else 'waived tests: ' + ', '.join(skipped)
+    elif skipped:
+        status, message = 'SKIP', 'waived tests: ' + ', '.join(skipped)
+    elif uncalibrated:
+        status, message = 'WARN', 'some SUM thresholds unset'
     else:
         status, message = 'PASS', 'all SUM thresholds met'
     return Result('nvbandwidth', status,
