@@ -3,12 +3,12 @@ levels:
   # requirement so it is useful on A10 and other PCIe-only deployments.
   basic: &basic [network_mode, nvidia_smi, kernel_xid, ecc_remap, pcie_link, nvlink,
                  clocks_throttle, software_versions, oca_version, gpu_topology, fabricmanager,
-                 numa_topology, numa_affinity, gpu_burn]
+                 numa_topology, numa_affinity]
   # Standard adds single-host performance and diagnostics.  RDMA entries are
   # present in the generic profile and removed from profiles without RDMA.
   standard: &standard [network_mode, nvidia_smi, kernel_xid, ecc_remap, pcie_link, nvlink,
                       clocks_throttle, software_versions, oca_version, gpu_topology, fabricmanager,
-                      numa_topology, numa_affinity, ssh_connectivity, gpu_burn,
+                      numa_topology, numa_affinity, ssh_connectivity, gpu_burn, gpu_fryer,
                       nvbandwidth, babelstream, dcgmi,
                       rdma_iface, gpudirect_rdma, rdma_perf, rdma_read, rdma_send, gdr_perf]
   # Extended adds placement/IMEX and multi-host collectives.  External storage
@@ -24,13 +24,13 @@ levels:
   # lists free of checks that would otherwise be predictable SKIPs.  Local NCCL
   # remains useful because it exercises the four GPUs without a network fabric.
   a10_basic: *basic
-  a10_standard: &a10_standard [network_mode, nvidia_smi, kernel_xid, ecc_remap, pcie_link, nvlink,
+  a10_standard: &a10_standard [network_mode, nvidia_smi, kernel_xid, ecc_remap, pcie_link,
                                clocks_throttle, software_versions, oca_version, gpu_topology, fabricmanager,
-                               numa_topology, numa_affinity, ssh_connectivity, gpu_burn,
+                               numa_topology, numa_affinity, ssh_connectivity,
                                nvbandwidth, babelstream, dcgmi]
   a10_extended: &a10_extended [network_mode, nvidia_smi, kernel_xid, ecc_remap, pcie_link, nvlink,
                                clocks_throttle, software_versions, oca_version, gpu_topology, fabricmanager,
-                               numa_topology, numa_affinity, gpu_burn,
+                               numa_topology, numa_affinity, gpu_burn, gpu_fryer,
                                nvbandwidth, babelstream, dcgmi, nccl_local_allreduce, nccl_local_alltoall]
   a100_basic: *basic
   a100_standard: *standard

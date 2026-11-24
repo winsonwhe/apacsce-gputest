@@ -235,10 +235,17 @@ install_gpu_tools() {
         CUDAPATH="${cuda_root}" CUDA_HOME="${cuda_root}" CUDA_PATH="${cuda_root}"
       ;;
     cmake)
-      local cmake_args=(-DCMAKE_CUDA_COMPILER="${nvcc_path}" -DMODEL=cuda)
-      if [[ "${name}" == "cuda-stream" ]]; then
-        cmake_args+=(-DCUDA_ARCH="${babelstream_arch}")
+      if [[ ! -f "${source_dir}/CMakeLists.txt" ]]; then
+        echo "[ERROR] ${name} source checkout is incomplete: ${source_dir}/CMakeLists.txt is missing." >&2
+        return 1
       fi
+      # Use an explicitly typed cache entry.  This prevents an empty MODEL
+      # value left by an interrupted first configure from being reused.
+      local cmake_args=(-DCMAKE_CUDA_COMPILER="${nvcc_path}" -DMODEL:STRING=cuda)
+      if [[ "${name}" == "cuda-stream" ]]; then
+        cmake_args+=(-DCUDA_ARCH:STRING="${babelstream_arch}")
+      fi
+      echo "[INFO] Configuring ${name} with MODEL=cuda."
       sudo cmake -S "${source_dir}" -B "${source_dir}/build" "${cmake_args[@]}"
       if [[ "${name}" == "cuda-stream" ]]; then
         sudo cmake --build "${source_dir}/build" --clean-first -j "$(getconf _NPROCESSORS_ONLN 2>/dev/null || echo 2)"
