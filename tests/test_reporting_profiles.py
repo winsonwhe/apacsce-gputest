@@ -53,6 +53,17 @@ def test_all_levels_have_registered_checks(tmp_path):
     assert all(set(names) <= registered for names in ctx.config['levels'].values())
 
 
+def test_a10_profiles_omit_unavailable_fabric_checks(tmp_path):
+    cfg = load_config(ROOT / 'config.yaml')
+    for level in ('a10_basic', 'a10_standard', 'a10_extended'):
+        checks = set(cfg['levels'][level])
+        assert not checks & {
+            'rdma_iface', 'gpudirect_rdma', 'rdma_perf', 'rdma_read',
+            'rdma_send', 'gdr_perf', 'nccl_allreduce', 'nccl_alltoall',
+        }
+    assert {'nccl_local_allreduce', 'nccl_local_alltoall'} <= set(cfg['levels']['a10_extended'])
+
+
 def test_report_sources_hints_escape_and_raw_lines(tmp_path):
     ctx = context(tmp_path)
     results = run_checks(['rdma_perf'], RunContext(ctx.config, 'gb300', ['n1', 'n2'], mock=True,

@@ -1,21 +1,37 @@
 levels:
+  # Basic is a short, host-local health gate.  It deliberately has no RDMA
+  # requirement so it is useful on A10 and other PCIe-only deployments.
   basic: &basic [network_mode, nvidia_smi, kernel_xid, ecc_remap, pcie_link, nvlink,
-                  clocks_throttle, software_versions, oca_version, gpu_topology, fabricmanager,
-                  numa_topology, numa_affinity, rdma_iface, gpudirect_rdma, gpu_burn]
+                 clocks_throttle, software_versions, oca_version, gpu_topology, fabricmanager,
+                 numa_topology, numa_affinity, gpu_burn]
+  # Standard adds single-host performance and diagnostics.  RDMA entries are
+  # present in the generic profile and removed from profiles without RDMA.
   standard: &standard [network_mode, nvidia_smi, kernel_xid, ecc_remap, pcie_link, nvlink,
-                       clocks_throttle, software_versions, oca_version, gpu_topology, fabricmanager,
-                       numa_topology, numa_affinity, rdma_iface, gpudirect_rdma, ssh_connectivity, gpu_burn,
-                       nvbandwidth, babelstream, dcgmi, rdma_perf, rdma_read, rdma_send, gdr_perf]
+                      clocks_throttle, software_versions, oca_version, gpu_topology, fabricmanager,
+                      numa_topology, numa_affinity, ssh_connectivity, gpu_burn,
+                      nvbandwidth, babelstream, dcgmi,
+                      rdma_iface, gpudirect_rdma, rdma_perf, rdma_read, rdma_send, gdr_perf]
+  # Extended adds placement/IMEX and multi-host collectives.  External storage
+  # and object-store checks remain opt-in because they need site-specific paths
+  # and credentials; run them with --tests when configured.
   extended: &extended [network_mode, nvidia_smi, kernel_xid, ecc_remap, pcie_link, nvlink,
-               clocks_throttle, software_versions, oca_version, gpu_topology, fabricmanager, numa_topology,
-               numa_affinity, rdma_iface, gpudirect_rdma, ssh_connectivity, placement, imex, gpu_burn, nvbandwidth,
-               babelstream, dcgmi, rdma_perf, rdma_read, rdma_send, gdr_perf,
-               nccl_local_allreduce, nccl_local_alltoall, nccl_allreduce, nccl_alltoall,
-               storage, nic_inventory, network_ping, tcp_bandwidth, lustre_client,
-               filesystem_perf, object_storage, object_upload]
+              clocks_throttle, software_versions, oca_version, gpu_topology, fabricmanager,
+              numa_topology, numa_affinity, ssh_connectivity, placement, imex, gpu_burn, nvbandwidth,
+              babelstream, dcgmi, nccl_local_allreduce, nccl_local_alltoall,
+              rdma_iface, gpudirect_rdma, rdma_perf, rdma_read, rdma_send, gdr_perf,
+              nccl_allreduce, nccl_alltoall]
+  # A10 has no RDMA fabric in the supported OCI deployment.  Keep its level
+  # lists free of checks that would otherwise be predictable SKIPs.  Local NCCL
+  # remains useful because it exercises the four GPUs without a network fabric.
   a10_basic: *basic
-  a10_standard: *standard
-  a10_extended: *extended
+  a10_standard: &a10_standard [network_mode, nvidia_smi, kernel_xid, ecc_remap, pcie_link, nvlink,
+                               clocks_throttle, software_versions, oca_version, gpu_topology, fabricmanager,
+                               numa_topology, numa_affinity, ssh_connectivity, gpu_burn,
+                               nvbandwidth, babelstream, dcgmi]
+  a10_extended: &a10_extended [network_mode, nvidia_smi, kernel_xid, ecc_remap, pcie_link, nvlink,
+                               clocks_throttle, software_versions, oca_version, gpu_topology, fabricmanager,
+                               numa_topology, numa_affinity, gpu_burn,
+                               nvbandwidth, babelstream, dcgmi, nccl_local_allreduce, nccl_local_alltoall]
   a100_basic: *basic
   a100_standard: *standard
   a100_extended: *extended
@@ -177,7 +193,6 @@ network:
   fallback_mode: single_plane
   single_plane:
     # Discovered ACTIVE + LINK_UP devices, mapped to netdevs. Optional pins below.
-    # TODO(verify): device count/names on each deployment; README has shape-specific examples.
     a10: {hca_names: [], expected_active_hcas: 0}
     a100: {hca_names: [], expected_active_hcas: 8}
     h100: {hca_names: [], expected_active_hcas: 8}
@@ -236,9 +251,17 @@ nccl:
   timeout_s: 1800
   args: [-b, 1G, -e, 16G, -f, '2', -g, '1', -n, '50']
   largest_size_bytes: 17179869184
-  local_args: [-b, 8, -e, 8G, -f, '2']
-  local_threshold_gbs: null  # TODO(verify): calibrate per SKU and GPU count
-  local_alltoall_threshold_gbs: null  # TODO(verify): calibrate per SKU and GPU count
+  local_args: [-b, 1G, -e, 8G, -f, '2']
+  local_threshold_gbs: null  # Fallback when no SKU/GPU-count calibration is configured
+  # Calibrated from an A10 two-GPU run: the lowest completed in-place busbw
+  # was 14.76 GB/s at 4 GiB, so retain a small operating margin.
+  local_thresholds_gbs:
+    a10: {2: 14.0}
+  local_alltoall_threshold_gbs: null  # Fallback when no SKU/GPU-count calibration is configured
+  # Calibrated from an A10 two-GPU run: the lowest completed in-place busbw
+  # was 14.37 GB/s at 4 GiB, so retain a small operating margin.
+  local_alltoall_thresholds_gbs:
+    a10: {2: 13.5}
   baseline_threshold_pct: 80
   # Optional example busbw GB/s by exact node count (2/16/32/64/80).
   # Leave empty until calibrated for the mode, SKU, and requested 16 GiB size.

@@ -341,8 +341,18 @@ def _nccl_local(ctx: RunContext, collective: str) -> Result:
            for label in ('in_place', 'out_of_place')):
         issues.append('NCCL reported data validation errors')
     busbw = largest['in_place']['busbw'] if largest else None
-    limit = cfg.get('local_threshold_gbs' if collective == 'allreduce'
-                    else 'local_alltoall_threshold_gbs')
+    if collective == 'allreduce':
+        # Prefer a calibration for the exact SKU and GPU count, retaining the
+        # legacy scalar as a fallback for deployments that use one global floor.
+        calibrated = cfg.get('local_thresholds_gbs', {}).get(ctx.sku, {})
+        limit = calibrated.get(gpu_count, calibrated.get(str(gpu_count)))
+        if limit is None:
+            limit = cfg.get('local_threshold_gbs')
+    else:
+        calibrated = cfg.get('local_alltoall_thresholds_gbs', {}).get(ctx.sku, {})
+        limit = calibrated.get(gpu_count, calibrated.get(str(gpu_count)))
+        if limit is None:
+            limit = cfg.get('local_alltoall_threshold_gbs')
     if busbw is not None and limit is not None and busbw < limit:
         issues.append(f'local busbw below {limit} GB/s')
     metrics = {'gpu_count': gpu_count, 'largest': largest, 'rows': parsed['rows'],

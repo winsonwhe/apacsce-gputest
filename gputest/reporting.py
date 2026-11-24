@@ -56,8 +56,15 @@ def annotate(result, ctx):
                 mode.get('threshold_source', 'config default'))
     elif name.startswith('nccl_local_'):
         key = 'local_threshold_gbs' if name == 'nccl_local_allreduce' else 'local_alltoall_threshold_gbs'
-        add('largest-size in-place busbw (GB/s)', result.metrics.get('threshold_gbs'), '>=',
-            f'nccl.{key}')
+        path = f'nccl.{key}'
+        if result.metrics.get('gpu_count'):
+            limits_key = ('local_thresholds_gbs' if name == 'nccl_local_allreduce'
+                          else 'local_alltoall_thresholds_gbs')
+            sku_limits = cfg['nccl'].get(limits_key, {}).get(ctx.sku, {})
+            gpu_count = result.metrics['gpu_count']
+            if gpu_count in sku_limits or str(gpu_count) in sku_limits:
+                path = f'nccl.{limits_key}.{ctx.sku}.{gpu_count}'
+        add('largest-size in-place busbw (GB/s)', result.metrics.get('threshold_gbs'), '>=', path)
     elif name.startswith('nccl_'):
         value = result.metrics.get('busbw_min_gbs')
         source = 'PDF example' if 'example reference' in result.metrics.get('threshold_source', '') else 'config default'

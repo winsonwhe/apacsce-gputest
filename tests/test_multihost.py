@@ -364,6 +364,38 @@ def test_local_alltoall_for_every_sku(tmp_path, sku):
     assert run_checks(['nccl_local_alltoall'], ctx)[0].status == 'FAIL'
 
 
+def test_local_allreduce_uses_sku_gpu_count_calibration(tmp_path, monkeypatch):
+    ctx = context(tmp_path, sku='a10')
+    ctx.nodes = []
+    ctx.config['skus']['a10']['gpu_count'] = 2
+    sample = ('4294967296 1073741824 float sum -1 '
+              '286927 14.97 14.97 0 291023 14.76 14.76 0\n')
+    monkeypatch.setattr(ctx, 'run', lambda *args, **kwargs: RunResult(sample, '', 0, 0))
+    result = run_checks(['nccl_local_allreduce'], ctx)[0]
+    assert result.status == 'PASS'
+    assert result.metrics['threshold_gbs'] == 14.0
+    assert result.metrics['busbw_gbs'] == 14.76
+    assert result.thresholds[0]['reference'] == 'nccl.local_thresholds_gbs.a10.2'
+    ctx.config['nccl']['local_thresholds_gbs']['a10'][2] = 15
+    assert run_checks(['nccl_local_allreduce'], ctx)[0].status == 'FAIL'
+    ctx.config['skus']['a10']['gpu_count'] = 4
+    assert run_checks(['nccl_local_allreduce'], ctx)[0].status == 'WARN'
+
+
+def test_local_alltoall_uses_sku_gpu_count_calibration(tmp_path, monkeypatch):
+    ctx = context(tmp_path, sku='a10')
+    ctx.nodes = []
+    ctx.config['skus']['a10']['gpu_count'] = 2
+    sample = ('4294967296 536870912 float none -1 '
+              '166118 25.85 12.93 0 149469 28.73 14.37 N/A\n')
+    monkeypatch.setattr(ctx, 'run', lambda *args, **kwargs: RunResult(sample, '', 0, 0))
+    result = run_checks(['nccl_local_alltoall'], ctx)[0]
+    assert result.status == 'PASS'
+    assert result.metrics['threshold_gbs'] == 13.5
+    assert result.metrics['busbw_gbs'] == 14.37
+    assert result.thresholds[0]['reference'] == 'nccl.local_alltoall_thresholds_gbs.a10.2'
+
+
 def test_local_alltoall_dry_run(tmp_path):
     ctx = context(tmp_path, dry_run=True)
     ctx.nodes = []
