@@ -258,6 +258,8 @@ if (( DO_SSH )); then
 
   if [[ -s "${HOST_FILE}" ]]; then
     echo "[INFO] Using existing non-empty host list ${HOST_FILE}; skipping input."
+    echo "[INFO] Existing host list:"
+    cat "${HOST_FILE}"
   else
     cat <<'EOF'
 Enter the GPU nodes for all_gpu_nodes.txt, one node per line.
