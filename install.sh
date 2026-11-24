@@ -76,16 +76,9 @@ else
   echo "[INFO] Private key saved to ${SSH_KEY}"
 fi
 
-if [[ ! -f "${HOST_FILE}" ]]; then
-  touch "${HOST_FILE}"
-  echo "[INFO] Created empty ${HOST_FILE}. Add one test node per line."
-fi
-if command -v vim >/dev/null 2>&1; then
-  vim "${HOST_FILE}"
-else
-  echo "[ERROR] vim is required to edit ${HOST_FILE}; install it and rerun install.sh." >&2
-  exit 1
-fi
+echo "Paste the test nodes for ${HOST_FILE}, one node per line, then press Ctrl+D:"
+cat > "${HOST_FILE}"
+echo "[INFO] Saved host list to ${HOST_FILE}"
 
 if [[ ! -d "${VENV_DIR}" ]]; then
   echo "[INFO] Creating Python virtualenv in ${VENV_DIR}"

@@ -46,9 +46,9 @@ chmod +x install.sh
 ./install.sh
 ```
 
-脚本需要交互式终端。运行时会要求输入测试节点使用的私钥，并使用 `vim`
-打开 `all_gpu_nodes.txt`；请填入每行一个节点后退出编辑器。SSH 默认用户为
-`ubuntu`。运行前需要准备 `sudo` 权限、`vim`、可访问系统软件包仓库的网络，
+脚本需要交互式终端。运行时会要求输入测试节点使用的私钥，然后提示你直接在终端
+粘贴 `all_gpu_nodes.txt` 的内容（每行一个节点）；粘贴完成后按 `Ctrl+D` 保存。SSH 默认用户为
+`ubuntu`。运行前需要准备 `sudo` 权限、可访问系统软件包仓库的网络，
 以及交互式终端。仓库必须预先克隆完成；`install.sh` 不会克隆或更新 Git 仓库。
 
 在 GPU 主机上，需要安装 NVIDIA 驱动和 CUDA、适用时安装 Fabric Manager，以及 DCGM、numactl、iproute2（`ip`、`rdma`、`ss`）、perftest、GNU `timeout` 和支持 SSH 的 MPI/UCX。构建 nccl-tests（`all_reduce_perf` 和 `alltoall_perf`），并在 `config.yaml` 的 `tools` 中配置可执行文件路径。版本要求随 SKU 和部署环境变化；配置中的最低版本和性能下限需要通过真实硬件验证。

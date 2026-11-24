@@ -53,8 +53,8 @@ chmod +x install.sh
 ```
 
 The script is interactive. It asks for the private key used by the test nodes
-and opens `all_gpu_nodes.txt` in `vim`; enter one node per line before closing
-the editor. The default SSH user is `ubuntu`. It needs `sudo`, `vim`, access to
+and prompts you to paste one node per line into the terminal; press `Ctrl+D` when
+finished to save `all_gpu_nodes.txt`. The default SSH user is `ubuntu`. It needs `sudo`, access to
 the system package repositories, and an interactive terminal. The repository
 must already be cloned; `install.sh` does not clone or update Git repositories.
 
