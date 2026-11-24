@@ -26,6 +26,10 @@ Modules:
   -a, --all           Run all modules (the default).
   -h, --help          Show this help and exit.
 
+Environment:
+  CUDA_ARCH=sm_86 ./install.sh --gpu-tools  # override BabelStream's CUDA architecture
+  NVCC_PATH=/usr/local/cuda-13.2/bin/nvcc ./install.sh --gpu-tools
+
 Examples:
   ./install.sh                 # install everything
   ./install.sh --system-deps   # install only OS packages
@@ -141,9 +145,17 @@ install_gpu_tools() {
     sudo ln -sf "${binary}" "/usr/local/bin/${name}"
     return
   fi
-  local nvcc_path="$(command -v nvcc 2>/dev/null || true)"
+  local nvcc_path="${NVCC_PATH:-$(command -v nvcc 2>/dev/null || true)}"
   if [[ -z "${nvcc_path}" && -x /usr/local/cuda/bin/nvcc ]]; then
     nvcc_path=/usr/local/cuda/bin/nvcc
+  fi
+  if [[ -z "${nvcc_path}" ]]; then
+    for candidate in /usr/local/cuda-*/bin/nvcc; do
+      if [[ -x "${candidate}" ]]; then
+        nvcc_path="${candidate}"
+        break
+      fi
+    done
   fi
   if [[ -z "${nvcc_path}" ]]; then
     echo "[ERROR] nvcc is required to build ${name}; install CUDA and rerun install.sh." >&2
@@ -163,8 +175,11 @@ install_gpu_tools() {
       sudo make -C "${source_dir}" CUDAPATH="$(dirname "$(dirname "${nvcc_path}")")"
       ;;
     cmake)
-      sudo cmake -S "${source_dir}" -B "${source_dir}/build" \
-        -DCMAKE_CUDA_COMPILER="${nvcc_path}" -DMODEL=cuda
+      local cmake_args=(-DCMAKE_CUDA_COMPILER="${nvcc_path}" -DMODEL=cuda)
+      if [[ "${name}" == "cuda-stream" ]]; then
+        cmake_args+=(-DCUDA_ARCH="${CUDA_ARCH:-sm_103}")
+      fi
+      sudo cmake -S "${source_dir}" -B "${source_dir}/build" "${cmake_args[@]}"
       sudo cmake --build "${source_dir}/build" -j "$(getconf _NPROCESSORS_ONLN 2>/dev/null || echo 2)"
       ;;
     *)
