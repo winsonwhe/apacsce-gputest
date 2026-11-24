@@ -176,6 +176,23 @@ def test_wrong_planes_block_burn_and_produce_report(tmp_path):
     assert results[1].status == 'SKIP' and 'blocked' in results[1].message
 
 
+@pytest.mark.parametrize(('selection', 'level_args', 'expected'), [
+    ('gpu_burn', [], 'basic'),
+    ('gpu_fryer', [], 'basic'),
+    ('gpu_burn', ['--level', 'standard'], 'standard'),
+    ('gpu_fryer', ['--level', 'extended'], 'extended'),
+    ('gpu_burn,gpu_fryer', [], 'standard'),
+    ('gpu_topology', [], 'standard'),
+])
+def test_cli_default_level_for_burn_selection(tmp_path, capsys, selection, level_args, expected):
+    ctx = context(tmp_path)
+    args = build_parser().parse_args(['run', '--sku', 'gb300', '--mock', '--tests', selection,
+                                     '--output-dir', str(tmp_path), *level_args])
+    cmd_run(args, ctx.config)
+    assert f'level={expected}' in capsys.readouterr().out
+    assert ctx.config['_level'] == expected
+
+
 def test_cli_reports_failure_with_nonzero_status_and_rerenders(tmp_path, monkeypatch):
     ctx = context(tmp_path)
     args = build_parser().parse_args(['run', '--sku', 'gb300', '--mock', '--tests', 'gpu_topology',

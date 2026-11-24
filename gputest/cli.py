@@ -148,6 +148,9 @@ def cmd_run(args, config: dict) -> None:
     if getattr(args, "gpu_count", None) is not None:
         config.setdefault("skus", {})[args.sku]["gpu_count"] = args.gpu_count
 
+    if args.level is None:
+        selected = [name.strip() for name in (getattr(args, "tests", None) or "").split(",") if name.strip()]
+        args.level = "basic" if selected in (["gpu_burn"], ["gpu_fryer"]) else "standard"
     config["_level"] = args.level
     checks = _resolve_checks(args.level, getattr(args, "tests", None), config)
 
@@ -341,8 +344,9 @@ def build_parser() -> argparse.ArgumentParser:
     run_p.add_argument("--sku", required=True,
                        help="Hardware SKU; see the skus keys in --config "
                             "(default config: a10, a100, h100, h200, l40s, b200, gb200, gb300, b300).")
-    run_p.add_argument("--level", default="standard",
-                       help="Level from the levels keys in --config (default: standard; "
+    run_p.add_argument("--level", default=None,
+                       help="Level from the levels keys in --config (default: basic for a single "
+                            "gpu_burn or gpu_fryer test, otherwise standard; "
                             "default config also includes basic, extended and SKU-prefixed aliases).")
     run_p.add_argument("--gpu-count", type=_positive_int, default=None,
                        help="Override expected GPU count (useful for partial A10 hosts).")

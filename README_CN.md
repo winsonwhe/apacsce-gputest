@@ -153,6 +153,7 @@ python3 -m gputest.cli setup-ssh \
 使用 `python3 -m gputest.cli run --sku <sku> --tests <check>` 运行单项检查；多主机检查加上 `--nodes n1,n2`，使用 `--dry-run` 预览。运行 `python3 -m gputest.cli list` 查看当前注册列表。下表按用途组织，实际执行顺序由配置组合或 `--tests` 决定；类别保留 CLI 中的名称。
 burn 有两个独立的测试名称：`--tests gpu_burn` 使用 `gpu_burn.backend` 配置的后端
 （默认是 `gpu-burn`），`--tests gpu_fryer` 会直接选择 Hugging Face 的 `gpu-fryer`。
+单独选择这两个测试之一且未指定 `--level` 时，默认使用 `basic`（默认配置下为 2 分钟）；显式指定的 `--level` 优先，其他测试选择仍默认为 `standard`。
 
 ### 系统验证
 

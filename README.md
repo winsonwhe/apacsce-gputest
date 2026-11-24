@@ -234,6 +234,9 @@ preview commands. Use `python3 -m gputest.cli list` for the current registry.
 The burn backends are available as separate test names: `--tests gpu_burn` uses
 the configured `gpu_burn.backend` (default `gpu-burn`), while
 `--tests gpu_fryer` explicitly selects Hugging Face `gpu-fryer`.
+When either burn check is selected alone without `--level`, it defaults to
+`basic` (2 minutes with the default configuration). An explicit `--level`
+overrides this; other selections default to `standard`.
 
 The tables group checks by purpose and roughly progress from inventory and
 health checks to performance and multi-host workloads within each group. This
