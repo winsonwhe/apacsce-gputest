@@ -494,10 +494,10 @@ tools:
   ib_read_bw: /opt/oci-hpc/perftest/bin/ib_read_bw
   ib_send_bw: /opt/oci-hpc/perftest/bin/ib_send_bw
   nvidia_smi: nvidia-smi
-  gpu-burn: ./tools/gpu-burn/gpu_burn
-  babelstream: ./tools/BabelStream/build/cuda-stream
-  nvbandwidth: ./tools/nvbandwidth/build/nvbandwidth
-  gpu_fryer: gpu-fryer
+  gpu-burn: /opt/gpu-burn/gpu_burn
+  babelstream: /opt/BabelStream/build/cuda-stream
+  nvbandwidth: /opt/nvbandwidth/build/nvbandwidth
+  gpu_fryer: /opt/gpu-fryer/bin/gpu-fryer
   dcgmi: dcgmi
   mpirun: mpirun
   timeout: timeout
