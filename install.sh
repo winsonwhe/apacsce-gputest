@@ -207,7 +207,17 @@ install_gpu_tools() {
       sudo cmake --build "${source_dir}/build" -j "$(getconf _NPROCESSORS_ONLN 2>/dev/null || echo 2)"
       ;;
     cargo)
-      sudo "${cargo_cmd}" install --path "${source_dir}" --root "${source_dir}"
+      local cargo_bin_dir="$(dirname "${cargo_cmd}")"
+      local rustc_path="${cargo_bin_dir}/rustc"
+      if [[ ! -x "${rustc_path}" ]]; then
+        echo "[ERROR] Rust 1.85.0 rustc was not found beside ${cargo_cmd}." >&2
+        exit 1
+      fi
+      echo "[INFO] Using $(${cargo_cmd} --version) and $(${rustc_path} --version)."
+      sudo chown -R "$(id -u):$(id -g)" "${source_dir}"
+      PATH="${cargo_bin_dir}:${PATH}" RUSTC="${rustc_path}" \
+        RUSTUP_TOOLCHAIN=1.85.0 "${cargo_cmd}" install \
+        --path "${source_dir}" --root "${source_dir}"
       ;;
     *)
       echo "[ERROR] Unknown build type for ${name}: ${build_type}" >&2

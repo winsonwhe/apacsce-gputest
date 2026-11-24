@@ -77,7 +77,8 @@ chmod +x install.sh
 和 gpu-fryer 构建并安装到 `/opt` 下；如果环境中已经有对应工具则跳过，并安装
 Git、make、CMake 和 Cargo。CUDA（`nvcc`）需要预先安装。gpu-fryer 是 Rust 项目，
 使用 Rustup 的 `1.85.0` 工具链构建，最终文件为 `/opt/gpu-fryer/bin/gpu-fryer`；运行
-GPU 工具模块前需要预先安装 Rustup。设置 `build_if_missing: true` 后，
+GPU 工具模块时如果缺少 Rustup，脚本会从官方 Rust 安装脚本自动安装。设置
+`build_if_missing: true` 后，
 本地主机运行 gputest 时也可在缺少源码时克隆并构建 gpu-burn、nvbandwidth 和
 BabelStream。SSH 目标主机上的可执行文件须提前部署到相同的绝对路径；gpu-burn 的
 `compare.ptx` 须与可执行文件位于同一目录。

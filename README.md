@@ -97,8 +97,8 @@ nvbandwidth and BabelStream sources when `build_if_missing: true`. For SSH
 targets, provision binaries beforehand at identical absolute paths on every host.
 gpu-burn needs `compare.ptx` beside its binary. gpu-fryer is built from its Rust
 source with the Rustup `1.85.0` toolchain and is installed as
-`/opt/gpu-fryer/bin/gpu-fryer`. Rustup must be installed before running the GPU
-tools module.
+`/opt/gpu-fryer/bin/gpu-fryer`. If Rustup is missing, the GPU tools module
+installs it from the official Rust installer.
 
 The installer accepts modules when a staged setup is needed. Run
 `./install.sh --help` for the complete list. With no options it runs every
