@@ -119,7 +119,7 @@ if (( DO_SYSTEM )); then
       ;;
   esac
 
-  BUILD_PACKAGES=(git make cmake cargo)
+  BUILD_PACKAGES=(git make cmake cargo curl)
   echo "[INFO] Detected OS: ${OS_PRETTY_NAME} (package manager: ${PKG_MGR})"
   if [[ "${PKG_MGR}" == "apt-get" ]]; then
     sudo apt-get update
@@ -162,6 +162,16 @@ install_gpu_tools() {
     exit 1
   fi
   if [[ "${build_type}" == "cargo" ]]; then
+    if ! command -v rustup >/dev/null 2>&1; then
+      if ! command -v curl >/dev/null 2>&1; then
+        echo "[ERROR] curl is required to install Rustup; run ./install.sh --system-deps first." >&2
+        exit 1
+      fi
+      echo "[INFO] Rustup is not installed; installing it from the official Rust installer."
+      curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs \
+        | sh -s -- -y --profile minimal --default-toolchain none
+      export PATH="${HOME}/.cargo/bin:${PATH}"
+    fi
     if ! command -v rustup >/dev/null 2>&1; then
       echo "[ERROR] gpu-fryer requires Rustup; install Rustup and rerun ./install.sh --gpu-tools." >&2
       exit 1
