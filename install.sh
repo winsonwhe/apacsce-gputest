@@ -172,7 +172,9 @@ install_gpu_tools() {
   fi
   case "${build_type}" in
     make)
-      sudo make -C "${source_dir}" CUDAPATH="$(dirname "$(dirname "${nvcc_path}")")"
+      local cuda_root="$(dirname "$(dirname "${nvcc_path}")")"
+      sudo make -C "${source_dir}" \
+        CUDAPATH="${cuda_root}" CUDA_HOME="${cuda_root}" CUDA_PATH="${cuda_root}"
       ;;
     cmake)
       local cmake_args=(-DCMAKE_CUDA_COMPILER="${nvcc_path}" -DMODEL=cuda)
@@ -202,10 +204,8 @@ if (( DO_GPU_TOOLS )); then
     "https://github.com/UoB-HPC/BabelStream.git" "/opt/BabelStream/build/cuda-stream" cmake
   install_gpu_tools "nvbandwidth" "/opt/nvbandwidth" \
     "https://github.com/NVIDIA/nvbandwidth.git" "/opt/nvbandwidth/build/nvbandwidth" cmake
-  # TODO(verify): confirm the official gpu-fryer repository and Makefile target
-  # for the deployment image before relying on unattended installation.
   install_gpu_tools "gpu-fryer" "/opt/gpu-fryer" \
-    "https://github.com/NVIDIA/gpu-fryer.git" "/opt/gpu-fryer/gpu-fryer" make
+    "https://github.com/huggingface/gpu-fryer.git" "/opt/gpu-fryer/gpu-fryer" make
 fi
 
 if (( DO_SSH )); then
