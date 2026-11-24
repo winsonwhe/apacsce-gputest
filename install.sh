@@ -256,7 +256,10 @@ if (( DO_SSH )); then
     echo "[INFO] Private key saved to ${SSH_KEY}"
   fi
 
-  cat <<'EOF'
+  if [[ -s "${HOST_FILE}" ]]; then
+    echo "[INFO] Using existing non-empty host list ${HOST_FILE}; skipping input."
+  else
+    cat <<'EOF'
 Enter the GPU nodes for all_gpu_nodes.txt, one node per line.
 
 Example: different SSH users per host
@@ -271,8 +274,9 @@ Example: use the default user for hosts without an explicit user
 
 Paste your GPU nodes list now, then press Ctrl+D:
 EOF
-  cat > "${HOST_FILE}"
-  echo "[INFO] Saved host list to ${HOST_FILE}"
+    cat > "${HOST_FILE}"
+    echo "[INFO] Saved host list to ${HOST_FILE}"
+  fi
 fi
 
 if (( DO_PYTHON )); then
