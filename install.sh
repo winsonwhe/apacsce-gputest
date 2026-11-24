@@ -119,7 +119,7 @@ if (( DO_SYSTEM )); then
       ;;
   esac
 
-  BUILD_PACKAGES=(git make cmake)
+  BUILD_PACKAGES=(git make cmake cargo)
   echo "[INFO] Detected OS: ${OS_PRETTY_NAME} (package manager: ${PKG_MGR})"
   if [[ "${PKG_MGR}" == "apt-get" ]]; then
     sudo apt-get update
@@ -161,6 +161,10 @@ install_gpu_tools() {
     echo "[ERROR] nvcc is required to build ${name}; install CUDA and rerun install.sh." >&2
     exit 1
   fi
+  if [[ "${build_type}" == "cargo" ]] && ! command -v cargo >/dev/null 2>&1; then
+    echo "[ERROR] cargo is required to build ${name}; run ./install.sh --system-deps first." >&2
+    exit 1
+  fi
 
   echo "[INFO] Installing ${name} under ${source_dir}"
   if [[ ! -d "${source_dir}/.git" ]]; then
@@ -184,6 +188,9 @@ install_gpu_tools() {
       sudo cmake -S "${source_dir}" -B "${source_dir}/build" "${cmake_args[@]}"
       sudo cmake --build "${source_dir}/build" -j "$(getconf _NPROCESSORS_ONLN 2>/dev/null || echo 2)"
       ;;
+    cargo)
+      sudo cargo install --path "${source_dir}" --root "${source_dir}"
+      ;;
     *)
       echo "[ERROR] Unknown build type for ${name}: ${build_type}" >&2
       exit 1
@@ -205,7 +212,7 @@ if (( DO_GPU_TOOLS )); then
   install_gpu_tools "nvbandwidth" "/opt/nvbandwidth" \
     "https://github.com/NVIDIA/nvbandwidth.git" "/opt/nvbandwidth/build/nvbandwidth" cmake
   install_gpu_tools "gpu-fryer" "/opt/gpu-fryer" \
-    "https://github.com/huggingface/gpu-fryer.git" "/opt/gpu-fryer/gpu-fryer" make
+    "https://github.com/huggingface/gpu-fryer.git" "/opt/gpu-fryer/bin/gpu-fryer" cargo
 fi
 
 if (( DO_SSH )); then

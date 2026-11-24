@@ -75,7 +75,8 @@ chmod +x install.sh
 
 `install.sh` 会将缺失的 gpu-burn、CUDA BabelStream（`cuda-stream`）、nvbandwidth
 和 gpu-fryer 构建并安装到 `/opt` 下；如果环境中已经有对应工具则跳过，并安装
-Git、make 和 CMake。CUDA（`nvcc`）需要预先安装。设置 `build_if_missing: true` 后，
+Git、make、CMake 和 Cargo。CUDA（`nvcc`）需要预先安装。gpu-fryer 是 Rust 项目，
+通过 Cargo 构建，最终文件为 `/opt/gpu-fryer/bin/gpu-fryer`。设置 `build_if_missing: true` 后，
 本地主机运行 gputest 时也可在缺少源码时克隆并构建 gpu-burn、nvbandwidth 和
 BabelStream。SSH 目标主机上的可执行文件须提前部署到相同的绝对路径；gpu-burn 的
 `compare.ptx` 须与可执行文件位于同一目录。

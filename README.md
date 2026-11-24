@@ -91,11 +91,12 @@ CMake and `nvcc` are also needed when configured benchmark sources must be built
 
 `install.sh` installs missing gpu-burn, CUDA BabelStream (`cuda-stream`),
 nvbandwidth and gpu-fryer builds below `/opt`, and skips tools already available
-in the environment. It also installs Git, make and CMake. CUDA (`nvcc`) must be
+in the environment. It also installs Git, make, CMake and Cargo. CUDA (`nvcc`) must be
 installed already. Local gputest runs can also clone/build missing gpu-burn,
 nvbandwidth and BabelStream sources when `build_if_missing: true`. For SSH
 targets, provision binaries beforehand at identical absolute paths on every host.
-gpu-burn needs `compare.ptx` beside its binary.
+gpu-burn needs `compare.ptx` beside its binary. gpu-fryer is built from its Rust
+source with Cargo and is installed as `/opt/gpu-fryer/bin/gpu-fryer`.
 
 The installer accepts modules when a staged setup is needed. Run
 `./install.sh --help` for the complete list. With no options it runs every
