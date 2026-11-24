@@ -76,7 +76,21 @@ else
   echo "[INFO] Private key saved to ${SSH_KEY}"
 fi
 
-echo "Paste the test nodes for ${HOST_FILE}, one node per line, then press Ctrl+D:"
+cat <<'EOF'
+Enter the GPU nodes for all_gpu_nodes.txt, one node per line.
+
+Example: different SSH users per host
+  opc@192.0.2.10
+  ubuntu@192.0.2.11
+  admin@192.0.2.12
+
+Example: use the default user for hosts without an explicit user
+  192.0.2.10
+  192.0.2.11
+  ubuntu@192.0.2.12
+
+Paste your GPU nodes list now, then press Ctrl+D:
+EOF
 cat > "${HOST_FILE}"
 echo "[INFO] Saved host list to ${HOST_FILE}"
 
