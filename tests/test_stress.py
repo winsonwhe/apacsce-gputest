@@ -131,6 +131,13 @@ def test_fryer_backend(ctx):
     assert not result.metrics['numerical_error_check']
 
 
+def test_fryer_is_explicit_test_name(ctx):
+    result = run_checks(['gpu_fryer'], ctx)[0]
+    assert result.name == 'gpu_fryer'
+    assert result.status == 'PASS'
+    assert result.metrics['backend'] == 'gpu-fryer'
+
+
 def test_burn_selection_options(ctx, monkeypatch):
     cfg = ctx.config['gpu_burn']
     cfg.update(gpus=[2], double=True, tensor_core=True, memory_percentage=75)

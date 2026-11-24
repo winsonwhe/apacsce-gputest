@@ -281,6 +281,8 @@ cuda:
   path: /usr/local/cuda
 
 gpu_burn:
+  # Select the default backend for the gpu_burn check. The gpu_fryer check is
+  # also registered separately, so --tests gpu_fryer can select it directly.
   backend: gpu-burn  # gpu-burn | gpu-fryer (fryer does not check numerical errors)
   build_if_missing: true
   source_dir: tools/gpu-burn

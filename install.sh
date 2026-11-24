@@ -161,9 +161,17 @@ install_gpu_tools() {
     echo "[ERROR] nvcc is required to build ${name}; install CUDA and rerun install.sh." >&2
     exit 1
   fi
-  if [[ "${build_type}" == "cargo" ]] && ! command -v cargo >/dev/null 2>&1; then
-    echo "[ERROR] cargo is required to build ${name}; run ./install.sh --system-deps first." >&2
-    exit 1
+  if [[ "${build_type}" == "cargo" ]]; then
+    if ! command -v rustup >/dev/null 2>&1; then
+      echo "[ERROR] gpu-fryer requires Rustup; install Rustup and rerun ./install.sh --gpu-tools." >&2
+      exit 1
+    fi
+    echo "[INFO] Installing and using Rust toolchain 1.85.0 for ${name}."
+    rustup toolchain install 1.85.0
+    local cargo_cmd
+    cargo_cmd="$(rustup which cargo --toolchain 1.85.0)"
+  else
+    local cargo_cmd=""
   fi
 
   echo "[INFO] Installing ${name} under ${source_dir}"
@@ -189,7 +197,7 @@ install_gpu_tools() {
       sudo cmake --build "${source_dir}/build" -j "$(getconf _NPROCESSORS_ONLN 2>/dev/null || echo 2)"
       ;;
     cargo)
-      sudo cargo install --path "${source_dir}" --root "${source_dir}"
+      sudo "${cargo_cmd}" install --path "${source_dir}" --root "${source_dir}"
       ;;
     *)
       echo "[ERROR] Unknown build type for ${name}: ${build_type}" >&2

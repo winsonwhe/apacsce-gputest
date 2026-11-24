@@ -76,7 +76,8 @@ chmod +x install.sh
 `install.sh` 会将缺失的 gpu-burn、CUDA BabelStream（`cuda-stream`）、nvbandwidth
 和 gpu-fryer 构建并安装到 `/opt` 下；如果环境中已经有对应工具则跳过，并安装
 Git、make、CMake 和 Cargo。CUDA（`nvcc`）需要预先安装。gpu-fryer 是 Rust 项目，
-通过 Cargo 构建，最终文件为 `/opt/gpu-fryer/bin/gpu-fryer`。设置 `build_if_missing: true` 后，
+使用 Rustup 的 `1.85.0` 工具链构建，最终文件为 `/opt/gpu-fryer/bin/gpu-fryer`；运行
+GPU 工具模块前需要预先安装 Rustup。设置 `build_if_missing: true` 后，
 本地主机运行 gputest 时也可在缺少源码时克隆并构建 gpu-burn、nvbandwidth 和
 BabelStream。SSH 目标主机上的可执行文件须提前部署到相同的绝对路径；gpu-burn 的
 `compare.ptx` 须与可执行文件位于同一目录。
@@ -149,6 +150,8 @@ python3 -m gputest.cli setup-ssh \
 下表中的“全部”指配置的 A10、A100、H100、H200、L40S、B200、GB200、B300 和 GB300。命令、参数和阈值来自 `config.yaml`，发现和遥测过程还可能执行其他命令。配置了某个 SKU 并不保证其工具、硬件能力或经过校准的阈值可用。
 
 使用 `python3 -m gputest.cli run --sku <sku> --tests <check>` 运行单项检查；多主机检查加上 `--nodes n1,n2`，使用 `--dry-run` 预览。运行 `python3 -m gputest.cli list` 查看当前注册列表。下表按用途组织，实际执行顺序由配置组合或 `--tests` 决定；类别保留 CLI 中的名称。
+burn 有两个独立的测试名称：`--tests gpu_burn` 使用 `gpu_burn.backend` 配置的后端
+（默认是 `gpu-burn`），`--tests gpu_fryer` 会直接选择 Hugging Face 的 `gpu-fryer`。
 
 ### 系统验证
 
@@ -175,7 +178,8 @@ python3 -m gputest.cli setup-ssh \
 | diagnostics | `dcgmi` | DCGM 诊断；`dcgmi diag -r <level> -j` | 全部 |
 | bandwidth | `babelstream` | GPU 内存带宽；`cuda-stream --device <gpu>` | 全部 |
 | bandwidth | `nvbandwidth` | 配置的 GPU 内存和互连带宽；`nvbandwidth -t <configured-test>` | 多节点仅 GB300 且至少两台主机；见下方构建限制 |
-| burn | `gpu_burn` | 持续计算压力和健康监控；`gpu_burn` 或 `gpu-fryer` | 全部 |
+| burn | `gpu_burn` | 使用配置后端执行持续计算压力和健康监控 | `gpu_burn -m <percent>% [-tc] [-d] <seconds>` | 全部 |
+| burn | `gpu_fryer` | 使用 Hugging Face gpu-fryer 执行持续计算压力和健康监控 | `gpu-fryer [options] <seconds>` | 全部 |
 
 ### 网络验证
 
@@ -229,7 +233,8 @@ python3 -m gputest.cli setup-ssh \
 OCI shape 名称不会决定网络模式。自动模式根据目标主机 IMDS 的 `rdmaFabricData.planes` 判断：4 为多平面，缺失或 1 为单平面；IMDS 不可达时使用 `network.fallback_mode` 并报告 WARN。`--network-mode` 或 `network.mode` 可覆盖检测结果，`network_mode` 预检会检查可访问的 IMDS 是否存在冲突。模式预检失败会阻止负载运行。预览模式显示发现步骤的占位符，并使用显式模式或回退模式；可通过 `--network-mode` 预览所需命令。
 
 - `rdma_iface`（兼容别名 `rdma_link`）发现 ACTIVE + LINK_UP 设备及网络接口。单平面的数量和可选固定设备按 SKU 配置，不假定接口名称、VRF 或 IPv6。多平面验证四个 VF 设备、`vrf_r0..3` 和各网络接口的 VRF 主设备，忽略未使用的 DOWN 链路。`gpu_topology` 检查 GPU/NIC 是否出现在拓扑中。
-- `gpu_burn` 验证错误计数、GPU 数量和各 GPU 吞吐偏差，并在负载期间采样温度和功率。无法获得遥测时为 WARN。可选的 `gpu-fryer` **不检查数值正确性**。采样可能遗漏瞬时事件；不会强制执行绝对温度或功率上限。
+- `gpu_burn` 验证错误计数、GPU 数量和各 GPU 吞吐偏差，并在负载期间采样温度和功率。无法获得遥测时为 WARN。`gpu_burn.backend` 可兼容地切换后端；通过 CLI 选择时也可直接使用独立的 `gpu_fryer` 测试名称。采样可能遗漏瞬时事件；不会强制执行绝对温度或功率上限。
+- `gpu_fryer` 使用 Hugging Face 后端执行相同的健康和吞吐检查，但**不检查数值正确性**。
 - `nvbandwidth` 将各配置的聚合 SUM（GB/s）与下限比较。可选的 GB300 多节点模式需要 MULTINODE 构建、同一 GMF 和 IMEX；参见 [NVIDIA 指南](https://github.com/NVIDIA/nvbandwidth#multi-node-support)。
 - `babelstream` 在每个 GPU 上运行，将 MB/s 换算成 GB/s，比较每项 Copy/Mul/Add/Triad/Dot 测量并报告均值和离散程度。`dcgmi` 请求对应诊断级别的 JSON，即使命令失败也保留各测试和实体的结果及警告。
 - `rdma_perf` 对每个 rail/设备执行 `ib_write_bw` 和 `ib_write_lat`；`rdma_bw` 和 `rdma_lat` 各选一项，`rdma_read` 和 `rdma_send` 执行对应带宽测试，`gdr_perf` 使用 `--use_cuda` 测试 GPU 内存。程序自动读取服务端/客户端地址，并在启动客户端前探测服务端就绪状态。多平面使用配置的 VRF、NUMA、IPv6 和 GID；单平面优先 IPv4，仅在发现或通过 `rdma_perf.single_plane.ip_family` 固定时启用 IPv6。报告各 rail 和 `(max - min) / mean` 差异。

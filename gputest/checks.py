@@ -5,6 +5,8 @@ from __future__ import annotations
 import math
 import re
 import statistics
+from copy import deepcopy
+from dataclasses import replace
 
 from gputest import multihost_checks, optional_checks, parsers  # noqa: F401
 from gputest.core import Result, RunContext, check
@@ -592,6 +594,16 @@ def gpu_burn(ctx: RunContext) -> Result:
     if backend == 'gpu-fryer':
         message += '; gpu-fryer does not validate numerical errors'
     return Result('gpu_burn', status, message, metrics, _raw=rr.stdout + rr.stderr)
+
+
+@check('gpu_fryer', category='burn')
+def gpu_fryer(ctx: RunContext) -> Result:
+    """Run the gpu-fryer backend as an explicit alternative burn check."""
+    config = deepcopy(ctx.config)
+    config['gpu_burn']['backend'] = 'gpu-fryer'
+    result = gpu_burn(replace(ctx, config=config))
+    result.name = 'gpu_fryer'
+    return result
 
 
 @check('nvbandwidth', category='bandwidth')

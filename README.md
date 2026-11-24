@@ -96,7 +96,9 @@ installed already. Local gputest runs can also clone/build missing gpu-burn,
 nvbandwidth and BabelStream sources when `build_if_missing: true`. For SSH
 targets, provision binaries beforehand at identical absolute paths on every host.
 gpu-burn needs `compare.ptx` beside its binary. gpu-fryer is built from its Rust
-source with Cargo and is installed as `/opt/gpu-fryer/bin/gpu-fryer`.
+source with the Rustup `1.85.0` toolchain and is installed as
+`/opt/gpu-fryer/bin/gpu-fryer`. Rustup must be installed before running the GPU
+tools module.
 
 The installer accepts modules when a staged setup is needed. Run
 `./install.sh --help` for the complete list. With no options it runs every
@@ -204,6 +206,9 @@ hardware capabilities or calibrated thresholds are available.
 Run an individual check with `python3 -m gputest.cli run --sku <sku> --tests
 <check>`; add `--nodes n1,n2` for checks marked multi-host and `--dry-run` to
 preview commands. Use `python3 -m gputest.cli list` for the current registry.
+The burn backends are available as separate test names: `--tests gpu_burn` uses
+the configured `gpu_burn.backend` (default `gpu-burn`), while
+`--tests gpu_fryer` explicitly selects Hugging Face `gpu-fryer`.
 
 The tables group checks by purpose and roughly progress from inventory and
 health checks to performance and multi-host workloads within each group. This
@@ -235,7 +240,8 @@ The Category column retains the CLI registry category.
 | diagnostics | `dcgmi` | DCGM diagnostic suite | `dcgmi diag -r <level> -j` | All |
 | bandwidth | `babelstream` | GPU memory bandwidth workloads | `cuda-stream --device <gpu>` | All |
 | bandwidth | `nvbandwidth` | Configured GPU memory and interconnect bandwidth workloads | `nvbandwidth -t <configured-test>`; optional `mpirun` for multi-node | All have test names; multi-node is GB300 only and requires at least two hosts. See build caveat below. |
-| burn | `gpu_burn` | Sustained GPU compute stress and health monitoring | `gpu_burn -m <percent>% [-tc] [-d] <seconds>` or `gpu-fryer [options] <seconds>` | All |
+| burn | `gpu_burn` | Sustained GPU compute stress and health monitoring with the configured backend | `gpu_burn -m <percent>% [-tc] [-d] <seconds>` | All |
+| burn | `gpu_fryer` | Sustained GPU compute stress using Hugging Face gpu-fryer | `gpu-fryer [options] <seconds>` | All |
 
 ### Network Validation
 
@@ -337,8 +343,11 @@ fallback; pass `--network-mode` to preview the desired commands.
   ignored. `gpu_topology` checks GPU/NIC presence in `nvidia-smi topo -m`.
 - `gpu_burn`: verify error counters, GPU count and per-GPU throughput deviation;
   sample temperature/power throughout the workload. Unavailable telemetry is
-  WARN. `gpu-fryer` is optional and **does not check numerical correctness**.
+  WARN. Set `gpu_burn.backend: gpu-fryer` only for compatibility; the explicit
+  `gpu_fryer` test name is available when selecting tests from the CLI.
   Sampling can miss transients; absolute thermal/power limits are not enforced.
+- `gpu_fryer`: uses the Hugging Face backend and performs the same health and
+  throughput checks, but **does not check numerical correctness**.
 - `nvbandwidth`: compare each configured aggregate SUM in GB/s with its floor.
   Optional GB300 multi-node mode requires a MULTINODE build, one GMF and IMEX;
   see [NVIDIA's instructions](https://github.com/NVIDIA/nvbandwidth#multi-node-support).
