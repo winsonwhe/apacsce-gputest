@@ -48,7 +48,10 @@ def test_rdma_read_send_and_gdr_commands(tmp_path, capsys):
     output = capsys.readouterr().out
     assert '/opt/oci-hpc/perftest/bin/ib_read_bw' in output
     assert '/opt/oci-hpc/perftest/bin/ib_send_bw' in output
-    assert '--use_cuda' in output
+    assert '--use_cuda_dmabuf' in output
+    assert '--use_data_direct' in output
+    assert '--use_cuda_bus_id=00000009:06:00.0' in output
+    assert ' --use_cuda ' not in output
 
 
 def test_remote_quoting_environment_cwd_and_timeout(monkeypatch, tmp_path):

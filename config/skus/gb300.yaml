@@ -11,3 +11,17 @@ skus:
     imex_capable: true
     nvlink: true
     arch: aarch64
+    gpudirect_rdma:
+      devices:
+        rdma_vf_rail0:
+          cuda_bus_id: '00000009:06:00.0'
+          args: [--use_cuda_dmabuf, --use_data_direct]
+        rdma_vf_rail1:
+          cuda_bus_id: '00000008:06:00.0'
+          args: [--use_cuda_dmabuf, --use_data_direct]
+        rdma_vf_rail2:
+          cuda_bus_id: '00000019:06:00.0'
+          args: [--use_cuda_dmabuf, --use_data_direct]
+        rdma_vf_rail3:
+          cuda_bus_id: '00000018:06:00.0'
+          args: [--use_cuda_dmabuf, --use_data_direct]

@@ -77,12 +77,26 @@ class Controller:
         os.replace(temp, path)
 
     def catalog(self):
-        # The catalog only needs names; SKU-specific details are loaded when a job starts.
+        # Keep the catalog authoritative: levels and SKU-specific selections come
+        # from the merged backend configuration, never from the browser.
         sku_files = sorted((ROOT / 'config' / 'skus').glob('*.yaml'))
         config = load_config(ROOT / 'config', sku=sku_files[0].stem) if sku_files else load_config(ROOT / 'config')
-        return {'levels': config['levels'], 'skus': [p.stem for p in sku_files],
-                'checks': [{k: c[k] for k in ('name', 'category', 'skus', 'multi_host')}
-                           for c in get_registry()]}
+        skus = [p.stem for p in sku_files]
+        checks = []
+        for check in get_registry():
+            item = {k: check[k] for k in ('name', 'category', 'skus', 'multi_host')}
+            item['levels'] = {
+                sku: {level: config['levels'].get(f'{sku}_{level}', config['levels'].get(level, []))
+                      for level in ('basic', 'standard', 'extended')}
+                for sku in skus
+            }
+            checks.append(item)
+        return {'levels': config['levels'], 'skus': skus, 'checks': checks}
+
+    @staticmethod
+    def configured_tests(catalog, sku, level):
+        levels = catalog['levels']
+        return list(levels.get(f'{sku}_{level}', levels.get(level, [])))
 
     def job_dir(self, job_id):
         if not ID_RE.fullmatch(job_id):
@@ -110,10 +124,16 @@ class Controller:
         sku, level = data.get('sku'), data.get('level')
         if sku not in catalog['skus'] or level not in catalog['levels']:
             raise ValueError('unknown SKU or level')
-        tests = data.get('tests')
+        tests = self.configured_tests(catalog, sku, level)
+        if not tests:
+            raise ValueError('no checks configured for this SKU and level')
+        requested_tests = data.get('tests')
         known = {c['name'] for c in catalog['checks']}
-        if not isinstance(tests, list) or not tests or any(not isinstance(t, str) or t not in known for t in tests):
-            raise ValueError('select at least one registered check')
+        if requested_tests is not None and (
+            not isinstance(requested_tests, list)
+            or any(not isinstance(test, str) or test not in known for test in requested_tests)
+        ):
+            raise ValueError('unknown registered check')
         hosts = data.get('nodes')
         if not isinstance(hosts, list) or not hosts or any(not isinstance(h, str) for h in hosts):
             raise ValueError('select at least one configured node')

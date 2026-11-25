@@ -168,6 +168,21 @@ def _rdma(ctx, name, kinds, *, tool_prefix='ib_write', args_key=None, tool_key=N
                 extra += ['--ipv6', '--ipv6-addr']
             key = args_key or kind
             args = cfg[f'{key}_args'] + extra + ['-p', str(port)]
+            if name == 'gdr_perf':
+                # OCI's GPU-direct setup may require a rail-specific CUDA PCI
+                # bus ID and DMA-BUF/data-direct flags.  Keep these mappings
+                # in the SKU config because PCI enumeration is deployment- and
+                # SKU-specific; older configurations continue to use gdr_args.
+                gdr_cfg = ctx.sku_config().get('gpudirect_rdma', {})
+                device_cfg = gdr_cfg.get('devices', {}).get(sd['hca'], {})
+                if device_cfg.get('args'):
+                    # --use_cuda and --use_cuda_dmabuf select different
+                    # allocation paths in perftest; an OCI DMA-BUF mapping
+                    # replaces the generic CUDA selector.
+                    args = [arg for arg in args if arg != '--use_cuda']
+                if device_cfg.get('cuda_bus_id'):
+                    args.append('--use_cuda_bus_id=' + str(device_cfg['cuda_bus_id']))
+                args.extend(str(flag) for flag in device_cfg.get('args', []))
             tool = ctx.config['tools'][f'{tool_prefix}_{tool_key or key}']
             jobs = [{'cmd': prefix + [tool] + args + ['-d', d['hca']] + peer,
                          'node': node, 'timeout': cfg['timeout_s'], 'mock_fixture': f'ib_write_{kind}.txt'}

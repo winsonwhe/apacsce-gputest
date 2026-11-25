@@ -10,3 +10,29 @@ skus:
     fabricmanager_required: true
     imex_capable: false
     arch: x86_64
+    gpudirect_rdma:
+      devices:
+        rdma_vf_rail0:
+          cuda_bus_id: '00000014:00.0'
+          args: [--use_cuda_dmabuf]
+        rdma_vf_rail1:
+          cuda_bus_id: '00000032:00.0'
+          args: [--use_cuda_dmabuf]
+        rdma_vf_rail2:
+          cuda_bus_id: '00000049:00.0'
+          args: [--use_cuda_dmabuf]
+        rdma_vf_rail3:
+          cuda_bus_id: '00000060:00.0'
+          args: [--use_cuda_dmabuf]
+        rdma_vf_rail4:
+          cuda_bus_id: '0000008E:00.0'
+          args: [--use_cuda_dmabuf]
+        rdma_vf_rail5:
+          cuda_bus_id: '000000AD:00.0'
+          args: [--use_cuda_dmabuf]
+        rdma_vf_rail6:
+          cuda_bus_id: '000000C5:00.0'
+          args: [--use_cuda_dmabuf]
+        rdma_vf_rail7:
+          cuda_bus_id: '000000DD:00.0'
+          args: [--use_cuda_dmabuf]

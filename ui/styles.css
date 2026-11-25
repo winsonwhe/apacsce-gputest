@@ -72,6 +72,8 @@ button, a { -webkit-tap-highlight-color: transparent; }
 .icon-grid::before { width: 11px; height: 11px; left: 2px; top: 2px; box-shadow: 5px 0 0 -1px var(--navy), 0 5px 0 -1px var(--navy), 5px 5px 0 -1px var(--navy); }
 .icon-clock::before { width: 11px; height: 11px; left: 2px; top: 2px; border-radius: 50%; }
 .icon-clock::after { width: 4px; height: 1.5px; left: 7px; top: 7px; border-width: 0 0 1.5px 1.5px; transform: rotate(45deg); }
+.icon-list::before { width: 11px; height: 1.5px; left: 4px; top: 4px; border: 0; background: currentColor; box-shadow: 0 4px 0 currentColor, 0 8px 0 currentColor; }
+.icon-list::after { width: 1.5px; height: 1.5px; left: 1px; top: 4px; border: 0; background: currentColor; box-shadow: 0 4px 0 currentColor, 0 8px 0 currentColor; }
 .icon-plus::before { width: 12px; height: 1.5px; left: 2px; top: 7px; border: 0; background: currentColor; border-radius: 1px; }
 .icon-plus::after { width: 1.5px; height: 12px; left: 7px; top: 2px; border: 0; background: currentColor; border-radius: 1px; }
 .button-icon { margin-right: 6px; vertical-align: -3px; }
@@ -152,6 +154,13 @@ td strong { color: var(--ink); }
 .check-row strong { font-size: 12px; font-weight: 600; }
 .check-row small { display: block; color: var(--muted); font-size: 11px; margin-top: 3px; }
 .check-category { margin-left: auto; color: var(--muted); font-size: 11px; }
+.check-row.readonly { cursor: default; }
+.catalog-panel { overflow: hidden; }
+.catalog-row { display: grid; grid-template-columns: minmax(180px, .8fr) minmax(0, 1.5fr); gap: 24px; align-items: center; padding: 15px 24px; border-top: 1px solid #edf0f3; }
+.catalog-row strong { font-size: 12px; font-weight: 600; }
+.catalog-row small { display: block; color: var(--muted); font-size: 11px; margin-top: 4px; }
+.catalog-levels { display: flex; flex-wrap: wrap; gap: 6px; }
+.catalog-levels span { background: var(--surface-raised); border: 1px solid var(--line); color: var(--ink-soft); border-radius: 5px; padding: 5px 7px; font-size: 10px; }
 .preview-card { padding: 24px; }
 .preview-card h2 { font-size: 18px; font-weight: 500; margin: 12px 0 22px; }
 .preview-row { display: flex; justify-content: space-between; padding: 12px 0; border-top: 1px solid var(--line); font-size: 12px; color: var(--muted); }
