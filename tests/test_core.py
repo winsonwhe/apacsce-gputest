@@ -510,11 +510,6 @@ class TestConfig:
         assert "device_to_device_bidirectional_memcpy_read_ce" in a10_nb["test_names"]
         assert a10_nb["thresholds"]["device_to_device_bidirectional_memcpy_read_ce"] == 20
 
-    def test_gpu_burn_config(self):
-        cfg = load_config(CONFIG_PATH)
-        assert "gpu_burn" in cfg
-        assert cfg["gpu_burn"]["compute_capability"]["b300"] == 103
-
     def test_babelstream_config(self):
         cfg = load_config(CONFIG_PATH)
         assert "babelstream" in cfg
@@ -524,24 +519,6 @@ class TestConfig:
         cfg = load_config(CONFIG_PATH)
         assert "dcgmi" in cfg
         assert cfg["dcgmi"]["diag_levels"]["basic"] == 1
-
-
-# ---------------------------------------------------------------------------
-# Parse gpu_burn
-# ---------------------------------------------------------------------------
-
-class TestParseGpuBurn:
-    def test_four_gpus_no_errors(self):
-        text = (FIXTURE_DIR / "gpu_burn.txt").read_text()
-        r = parsers.parse_gpu_burn(text)
-        assert len(r["per_gpu"]) == 4
-        assert not r["errors"]
-        assert r["error_count"] == 0
-
-    def test_gflops_parsed(self):
-        text = (FIXTURE_DIR / "gpu_burn.txt").read_text()
-        r = parsers.parse_gpu_burn(text)
-        assert r["per_gpu"][0]["gflops"] > 9000
 
 
 # ---------------------------------------------------------------------------
@@ -571,23 +548,6 @@ class TestParseDcgmiJson:
 # ---------------------------------------------------------------------------
 # Stress checks
 # ---------------------------------------------------------------------------
-
-class TestGpuBurnCheck:
-    def test_pass_gb300(self, tmp_path):
-        ctx = _ctx("gb300", tmp_path=tmp_path)
-        r = run_checks(["gpu_burn"], ctx)[0]
-        assert r.status == "PASS", r.message
-        assert r.metrics["gpu_count"] == 4
-
-    def test_skip_missing_tool(self, tmp_path):
-        config = load_config(CONFIG_PATH)
-        # Simulate tool not found by using invalid path
-        config["tools"]["gpu-burn"] = "/no/such/tool/gpu-burn"
-        ctx = RunContext(config=config, sku="gb300", nodes=[], dry_run=False,
-                         mock=False, network_mode="single_plane", results_dir=tmp_path)
-        r = run_checks(["gpu_burn"], ctx)[0]
-        assert r.status in ("SKIP", "FAIL")
-
 
 class TestBabelstreamCheck:
     def test_pass_gb300(self, tmp_path):

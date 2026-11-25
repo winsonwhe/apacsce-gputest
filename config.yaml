@@ -1,12 +1,12 @@
 levels:
   # Basic is a short, host-local health gate.  It deliberately has no RDMA
   # requirement so it is useful on A10 and other PCIe-only deployments.
-  basic: &basic [network_mode, nvidia_smi, kernel_xid, ecc_remap, pcie_link, nvlink,
+  basic(handover doc): &basic [network_mode, nvidia_smi, kernel_xid, ecc_remap, pcie_link, nvlink,
                  clocks_throttle, software_versions, oca_version, gpu_topology, fabricmanager,
                  numa_topology, numa_affinity]
   # Standard adds single-host performance and diagnostics.  RDMA entries are
   # present in the generic profile and removed from profiles without RDMA.
-  standard: &standard [network_mode, nvidia_smi, kernel_xid, ecc_remap, pcie_link, nvlink,
+  standard(cross-node): &standard [network_mode, nvidia_smi, kernel_xid, ecc_remap, pcie_link, nvlink,
                       clocks_throttle, software_versions, oca_version, gpu_topology, fabricmanager,
                       numa_topology, numa_affinity, ssh_connectivity, gpu_burn, gpu_fryer,
                       nvbandwidth, babelstream, dcgmi,
@@ -14,7 +14,7 @@ levels:
   # Extended adds placement/IMEX and multi-host collectives.  External storage
   # and object-store checks remain opt-in because they need site-specific paths
   # and credentials; run them with --tests when configured.
-  extended: &extended [network_mode, nvidia_smi, kernel_xid, ecc_remap, pcie_link, nvlink,
+  extended(custom-image): &extended [network_mode, nvidia_smi, kernel_xid, ecc_remap, pcie_link, nvlink,
               clocks_throttle, software_versions, oca_version, gpu_topology, fabricmanager,
               numa_topology, numa_affinity, ssh_connectivity, placement, imex, gpu_burn, nvbandwidth,
               babelstream, dcgmi, nccl_local_allreduce, nccl_local_alltoall,
@@ -199,9 +199,9 @@ network:
     h200: {hca_names: [], expected_active_hcas: 8}
     l40s: {hca_names: [], expected_active_hcas: 8}
     b200: {hca_names: [], expected_active_hcas: 8}
+    b300: {hca_names: [], expected_active_hcas: 8}
     gb200: {hca_names: [], expected_active_hcas: 4}
     gb300: {hca_names: [], expected_active_hcas: 4}
-    b300: {hca_names: [], expected_active_hcas: 8}
   multiplanar:
     # Source: GB300.4_multiplanar_handover_manual_from_PSE.pdf
     # IMDS rdmaFabricData.planes == 4

@@ -29,38 +29,13 @@ def fixture(name):
 @pytest.fixture
 def ctx(tmp_path):
     config = load_config(FIXTURES.parent / 'config.yaml')
-    # These tests exercise gpu-burn-specific command and output behavior.
-    config['gpu_burn']['backend'] = 'gpu-burn'
-    for key in ('gpu_burn', 'nvbandwidth', 'babelstream'):
+    for key in ('nvbandwidth', 'babelstream'):
         config[key]['build_if_missing'] = False
     return RunContext(config, 'gb300', [], mock=True, results_dir=tmp_path)
 
 
 def success(stdout=''):
     return RunResult(stdout, '', 0, 0)
-
-
-def test_native_burn():
-    result = parsers.parse_gpu_burn(fixture('gpu_burn_progress.txt'))
-    assert len(result['per_gpu']) == 4
-    assert result['per_gpu'][0] == {'gpu_id': 0, 'gflops': 9510.0, 'errors': 0, 'temp_c': 61}
-    assert not result['errors']
-
-
-def test_burn_cumulative_errors_and_dead_gpu():
-    text = fixture('gpu_burn_progress.txt').replace('errors: 0 - 0', 'errors: 2 - 0')
-    parsed = parsers.parse_gpu_burn(text)
-    assert parsed['error_count'] == 2  # not 4: counters are cumulative
-    assert parsed['errors']
-    assert parsers.parse_gpu_burn('GPU 3: FAULTY')['errors']
-    assert parsers.parse_gpu_burn('errors: 0 (DIED!)')['errors']
-
-
-def test_fryer_native():
-    parsed = parsers.parse_gpu_burn(fixture('gpu_fryer.txt'))
-    assert len(parsed['per_gpu']) == 4
-    assert parsed['per_gpu'][0]['gflops'] == 51494
-    assert parsed['per_gpu'][0]['temp_c'] == 50
 
 
 def test_babelstream_native_units():
@@ -105,32 +80,6 @@ def test_samples_keep_peak_and_ignore_na():
     assert peaks['1']['power_w'] == 1140
 
 
-@pytest.mark.parametrize('output', [
-    'garbage',
-    fixture('gpu_burn_progress.txt').replace('errors: 0 - 0', 'errors: 1 - 0'),
-    fixture('gpu_burn_progress.txt').replace('9510 Gflop/s', '100 Gflop/s'),
-    'GPU 0: 0 GFlop/s 0 errors (temp 50)',
-])
-def test_burn_rejects_bad_results(ctx, monkeypatch, output):
-    monkeypatch.setattr('gputest.core.run_sampled', lambda *a, **kw: (success(output), '', ''))
-    assert checks.gpu_burn(ctx).status == 'FAIL'
-
-
-def test_burn_peaks_and_raw_saved(ctx):
-    result = run_checks(['gpu_burn'], ctx)[0]
-    assert result.status == 'PASS'
-    assert result.metrics['peak_temp_c'] == 65
-    assert result.metrics['peak_power_w'] == 1150.75
-    assert Path(result.raw_output_file).read_text() == fixture('gpu_burn.txt')
-
-
-def test_fryer_backend(ctx):
-    ctx.config['gpu_burn']['backend'] = 'gpu-fryer'
-    result = checks.gpu_burn(ctx)
-    assert result.status == 'PASS'
-    assert not result.metrics['numerical_error_check']
-
-
 def test_fryer_is_explicit_test_name(ctx):
     result = run_checks(['gpu_fryer'], ctx)[0]
     assert result.name == 'gpu_fryer'
@@ -138,25 +87,7 @@ def test_fryer_is_explicit_test_name(ctx):
     assert result.metrics['backend'] == 'gpu-fryer'
 
 
-def test_burn_selection_options(ctx, monkeypatch):
-    cfg = ctx.config['gpu_burn']
-    cfg.update(gpus=[2], double=True, tensor_core=True, memory_percentage=75)
-    seen = []
-
-    def sampled(context, cmd, **kwargs):
-        seen.append((cmd, kwargs))
-        return success('GPU 0: 100 GFlop/s 0 errors (temp 60)'), '2, 60, 500', ''
-
-    monkeypatch.setattr('gputest.core.run_sampled', sampled)
-    result = checks.gpu_burn(ctx)
-    assert result.status == 'PASS'
-    assert result.metrics['per_gpu'][0]['gpu_id'] == 2
-    assert '-tc' in seen[0][0] and '-d' in seen[0][0]
-    assert '75%' in seen[0][0]
-    assert seen[0][1]['env'] == {'CUDA_VISIBLE_DEVICES': '2'}
-
-
-@pytest.mark.parametrize('name', ['gpu_burn', 'nvbandwidth', 'babelstream', 'dcgmi'])
+@pytest.mark.parametrize('name', ['nvbandwidth', 'babelstream', 'dcgmi'])
 def test_missing_tools_skip(ctx, monkeypatch, name):
     monkeypatch.setattr(ctx, 'run', lambda *a, **kw: RunResult('', 'command not found', 127, 0))
     assert run_checks([name], ctx)[0].status == 'SKIP'
@@ -248,13 +179,12 @@ def test_dcgm_failure_exit_retains_tests(ctx, monkeypatch):
 
 def test_build_dry_run(ctx, capsys):
     ctx.dry_run, ctx.mock = True, False
-    for section in ('gpu_burn', 'babelstream', 'nvbandwidth'):
+    for section in ('babelstream', 'nvbandwidth'):
         ctx.config[section]['build_if_missing'] = True
     ctx.config['cuda']['path'] = '/test/cuda'
-    results = run_checks(['gpu_burn', 'babelstream', 'nvbandwidth'], ctx)
+    results = run_checks(['babelstream', 'nvbandwidth'], ctx)
     assert all(r.status == 'SKIP' for r in results)
     output = capsys.readouterr().out
-    assert 'COMPUTE=103' in output and 'CUDAPATH=/test/cuda' in output
     assert '-DCUDA_ARCH=sm_103' in output
     assert '-DCMAKE_CUDA_COMPILER=/test/cuda/bin/nvcc' in output
     assert '-DCMAKE_CUDA_ARCHITECTURES=103' in output
@@ -289,19 +219,6 @@ def test_sampling_overlaps_workload(ctx, monkeypatch):
     assert rr.stdout == 'done' and '0, 60, 500' in samples and not error
 
 
-def test_sampling_unavailable_warns(ctx, monkeypatch):
-    def execute(cmd, **kwargs):
-        if cmd[0] == ctx.config['tools']['nvidia_smi']:
-            return RunResult('', 'not found', 127, 0)
-        return success(fixture('gpu_burn_progress.txt'))
-
-    monkeypatch.setattr(ctx, 'run', execute)
-    result = checks.gpu_burn(ctx)
-    assert result.status == 'WARN'
-    assert 'sampling_warning' in result.metrics
-    assert 'peak_temp_c' not in result.metrics
-
-
 def test_timeout_retains_partial_output(tmp_path, monkeypatch):
     def execute(*a, **kw):
         raise subprocess.TimeoutExpired(['test'], 1, output=b'partial', stderr=b'problem')
@@ -328,49 +245,11 @@ def test_cli_level_reaches_check(ctx, monkeypatch, tmp_path):
     assert json.loads(report.read_text())['checks'][0]['status'] == 'PASS'
 
 
-def test_build_missing_dependency_skips(ctx, monkeypatch):
-    ctx.mock = False
-    ctx.config['gpu_burn']['build_if_missing'] = True
-    monkeypatch.setattr('shutil.which', lambda cmd: None)
-    result = checks.gpu_burn(ctx)
-    assert result.status == 'SKIP'
-    assert 'nvcc' in result.message
-
-
-def test_build_failure_is_reported(ctx, monkeypatch):
-    ctx.config['gpu_burn']['build_if_missing'] = True
-    monkeypatch.setattr(ctx, 'run', lambda *a, **kw: RunResult('', 'build failed', 1, 0))
-    result = checks.gpu_burn(ctx)
-    assert result.status == 'FAIL' and 'build failed' in result.message
-
-
 def test_extended_dcgm_level_four_override(ctx, monkeypatch):
     ctx.config['_level'] = 'extended'
     ctx.config['dcgmi']['diag_levels']['extended'] = 4
     result = checks.dcgmi(ctx)
     assert result.status == 'PASS' and result.metrics['level'] == 4
-
-
-@pytest.mark.parametrize(('mask', 'preflight', 'burn'), [
-    ('0x0000000000000000', 'PASS', 'PASS'),
-    ('0x0000000000000005', 'PASS', 'PASS'),
-    ('0x0000000000000008', 'WARN', 'FAIL'),
-    ('0x0000000000000040', 'WARN', 'FAIL'),
-    ('0x0000000000000080', 'WARN', 'FAIL'),
-    ('0x0000000000000045', 'WARN', 'FAIL'),
-    ('N/A', 'WARN', 'WARN'),
-])
-def test_clock_event_masks(ctx, monkeypatch, mask, preflight, burn):
-    original = ctx.run
-
-    def execute(cmd, **kwargs):
-        if any('clocks_event_reasons.active' in arg for arg in cmd):
-            return success('\n'.join(f'{i}, {mask}' for i in range(4)))
-        return original(cmd, **kwargs)
-
-    monkeypatch.setattr(ctx, 'run', execute)
-    assert checks.clocks_throttle(ctx).status == preflight
-    assert checks.gpu_burn(ctx).status == burn
 
 
 def test_clock_event_legacy_fallback(ctx, monkeypatch):

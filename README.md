@@ -48,6 +48,18 @@ python3 -m gputest.cli run --sku gb300 --level extended --nodes host1,host2
 
 Use `--tests check1,check2` to select checks explicitly. Use `--network-mode single_plane|multiplanar` when automatic IMDS detection is unavailable. Reports and raw command output are written under `results/`. See [running tests](doc/running-tests.md).
 
+
+## Levels
+
+| Level | Purpose |
+|---|---|
+| `basic` | Host-local health checks and a short GPU burn; no RDMA or multi-host requirement. |
+| `standard` | Basic plus bandwidth, BabelStream, DCGM and RDMA checks on profiles that support RDMA. |
+| `extended` | Standard plus local NCCL, placement/IMEX where supported, and multi-host NCCL. |
+
+A10 uses dedicated profiles: `a10_basic`, `a10_standard`, and `a10_extended`. They omit RDMA and multi-host NCCL because the supported A10 deployment has no RDMA fabric. Storage and object-store checks are opt-in because they require site-specific paths or credentials. See [level details](doc/levels.md).
+
+
 ## Test catalog
 
 | Area | Checks |
@@ -61,12 +73,3 @@ Use `--tests check1,check2` to select checks explicitly. Use `--network-mode sin
 
 Use `python3 -m gputest.cli list` for the registry and [the full catalog](doc/test-catalog.md) for commands and prerequisites.
 
-## Levels
-
-| Level | Purpose |
-|---|---|
-| `basic` | Host-local health checks and a short GPU burn; no RDMA or multi-host requirement. |
-| `standard` | Basic plus bandwidth, BabelStream, DCGM and RDMA checks on profiles that support RDMA. |
-| `extended` | Standard plus local NCCL, placement/IMEX where supported, and multi-host NCCL. |
-
-A10 uses dedicated profiles: `a10_basic`, `a10_standard`, and `a10_extended`. They omit RDMA and multi-host NCCL because the supported A10 deployment has no RDMA fabric. Storage and object-store checks are opt-in because they require site-specific paths or credentials. See [level details](doc/levels.md).
