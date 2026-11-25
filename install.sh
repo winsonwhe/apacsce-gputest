@@ -34,6 +34,8 @@ Modules:
 Environment:
   CUDA_ARCH=sm_86 ./install.sh --gpu-tools  # optional BabelStream architecture override
   NVCC_PATH=/usr/local/cuda-13.2/bin/nvcc ./install.sh --gpu-tools
+  A GPU-less host is detected as a control plane automatically; local GPU builds
+  are skipped and, when requested, run on the hosts in all_gpu_nodes.txt.
 
 Control-plane installation (for a jump host without a GPU):
   ./install.sh --control-plane --system-deps --python --ssh --gpu-tools
@@ -95,6 +97,22 @@ fi
 cd "${SCRIPT_DIR}"
 
 echo "[INFO] Repository: ${SCRIPT_DIR}"
+
+# A jump host may have neither the NVIDIA driver nor CUDA installed.  Detect
+# that case before running any GPU build logic and treat the host as a control
+# plane automatically.  The worker invocation used below sets
+# GPUTEST_GPU_TOOLS_WORKER=1, so remote GPU nodes always build locally even if
+# the controller cannot enumerate a GPU.
+if [[ "${GPUTEST_GPU_TOOLS_WORKER:-0}" != "1" && "${CONTROL_PLANE}" != "1" ]]; then
+  local_gpu_count=""
+  if command -v nvidia-smi >/dev/null 2>&1; then
+    local_gpu_count="$(nvidia-smi --query-gpu=index --format=csv,noheader 2>/dev/null || true)"
+  fi
+  if [[ -z "${local_gpu_count//[[:space:]]/}" ]]; then
+    CONTROL_PLANE=1
+    echo "[INFO] No local NVIDIA GPU detected; treating this host as a control plane and skipping local GPU tool builds."
+  fi
+fi
 
 if (( DO_SYSTEM )); then
   if [[ ! -f /etc/os-release ]]; then
