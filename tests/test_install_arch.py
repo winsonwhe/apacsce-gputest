@@ -67,3 +67,27 @@ def test_gpu_less_host_auto_skips_local_gpu_build(tmp_path):
     assert 'No local NVIDIA GPU detected' in result.stdout
     assert 'skipping local GPU tool builds' in result.stdout
     assert 'Building GPU tools on ubuntu@gpu-node' in result.stdout
+
+
+def test_gpu_less_host_skips_local_python_checks(tmp_path):
+    script = Path(__file__).resolve().parents[1] / 'install.sh'
+    (tmp_path / 'install.sh').write_text(script.read_text())
+    (tmp_path / 'requirements.txt').touch()
+    (tmp_path / 'gputest').mkdir()
+    (tmp_path / '.venv' / 'bin').mkdir(parents=True)
+    (tmp_path / '.venv' / 'bin' / 'activate').write_text('')
+    log = tmp_path / 'python.log'
+    fake_python = tmp_path / 'python3'
+    fake_python.write_text(f'#!/bin/sh\nprintf "%s\\n" "$*" >> {shlex.quote(str(log))}\n')
+    fake_python.chmod(0o755)
+    env = {**os.environ, 'PATH': str(tmp_path) + os.pathsep + os.environ['PATH']}
+    env.pop('GPUTEST_GPU_TOOLS_WORKER', None)
+    result = subprocess.run(
+        ['bash', str(tmp_path / 'install.sh'), '--control-plane', '--python'],
+        env=env, text=True, capture_output=True, check=False,
+    )
+    assert result.returncode == 0, result.stderr
+    assert 'skipping local pytest and Ruff checks' in result.stdout
+    python_calls = log.read_text()
+    assert '-m pytest' not in python_calls
+    assert '-m ruff' not in python_calls

@@ -55,6 +55,7 @@ DO_GPU_TOOLS=0
 DO_PYTHON=0
 DO_SSH=0
 CONTROL_PLANE=0
+GPULESS_HOST=0
 if [[ "${GPUTEST_GPU_TOOLS_WORKER:-0}" == "1" ]]; then
   DO_GPU_TOOLS=1
 elif [[ "$#" -eq 0 ]]; then
@@ -103,13 +104,16 @@ echo "[INFO] Repository: ${SCRIPT_DIR}"
 # plane automatically.  The worker invocation used below sets
 # GPUTEST_GPU_TOOLS_WORKER=1, so remote GPU nodes always build locally even if
 # the controller cannot enumerate a GPU.
-if [[ "${GPUTEST_GPU_TOOLS_WORKER:-0}" != "1" && "${CONTROL_PLANE}" != "1" ]]; then
+if [[ "${GPUTEST_GPU_TOOLS_WORKER:-0}" != "1" ]]; then
   local_gpu_count=""
   if command -v nvidia-smi >/dev/null 2>&1; then
     local_gpu_count="$(nvidia-smi --query-gpu=index --format=csv,noheader 2>/dev/null || true)"
   fi
   if [[ -z "${local_gpu_count//[[:space:]]/}" ]]; then
-    CONTROL_PLANE=1
+    GPULESS_HOST=1
+    if (( ! CONTROL_PLANE )); then
+      CONTROL_PLANE=1
+    fi
     echo "[INFO] No local NVIDIA GPU detected; treating this host as a control plane and skipping local GPU tool builds."
   fi
 fi
@@ -370,8 +374,12 @@ if (( DO_PYTHON )); then
   python3 -m pip install -r requirements.txt
   python3 -m pip install pytest ruff
 
-  python3 -m pytest -q
-  python3 -m ruff check .
+  if (( GPULESS_HOST )); then
+    echo "[INFO] No local NVIDIA GPU detected; skipping local pytest and Ruff checks on the jump host."
+  else
+    python3 -m pytest -q
+    python3 -m ruff check .
+  fi
 fi
 
 if (( DO_SSH )); then

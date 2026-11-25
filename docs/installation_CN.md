@@ -26,7 +26,7 @@ python3 -m pytest -q
 ./install.sh --control-plane --system-deps --python --ssh --gpu-tools
 ```
 
-该命令在跳板机上准备 Python、Git、curl 和 SSH，在清单中的每台 GPU 节点上安装系统构建依赖并构建 GPU 工具。跳板机不需要 `nvidia-smi`、`nvcc` 或 CUDA；GPU 节点需要预先安装 CUDA。`install.sh` 会自动将无法枚举 NVIDIA GPU 的主机视为跳板机，并跳过本机 GPU 工具构建；需要强制使用此行为时可加 `--control-plane`。若只需要控制端，不安装远程 GPU 工具，则使用 `./install.sh --control-plane --python --ssh`。
+该命令在跳板机上准备 Python、Git、curl 和 SSH，在清单中的每台 GPU 节点上安装系统构建依赖并构建 GPU 工具。跳板机不需要 `nvidia-smi`、`nvcc` 或 CUDA；GPU 节点需要预先安装 CUDA。`install.sh` 会自动将无法枚举 NVIDIA GPU 的主机视为跳板机，跳过本机 GPU 工具构建以及本机 `pytest`/Ruff 检查；需要强制使用 control-plane 行为时可加 `--control-plane`。请在 GPU 节点或其他已准备好的开发主机上运行这些检查。若只需要控制端，不安装远程 GPU 工具，则使用 `./install.sh --control-plane --python --ssh`。
 
 实际硬件验证还需要按检查类型准备驱动/CUDA、DCGM、`numactl`、iproute2、perftest、GNU `timeout`、MPI/UCX 和 nccl-tests。工具路径和阈值配置在 `config/ 中。
 
