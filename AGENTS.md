@@ -15,10 +15,10 @@ All project content is in English: code, comments, CLI help, log messages, repor
 - Python 3.10+, standard library + PyYAML only.
 - Flat layout, few files. Do NOT add packages, base-class hierarchies, or plugin frameworks.
 - A test is a plain function registered with a decorator, e.g. `@check("nvidia_smi", category="preflight")`.
-  Adding a test = add one function + (optionally) one block in `config.yaml`.
+  Adding a test = add one function + (optionally) one block in `config/`.
 - Every external command goes through one `run()` helper: timeout, dry-run, raw output saved to disk, mock mode (reads from `fixtures/`).
 - Parsers are pure functions (text in, dict out) and have unit tests built from real sample output.
-- Thresholds, version requirements, tool paths and NCCL env vars live in `config.yaml`, never hardcoded.
+- Thresholds, version requirements, tool paths and NCCL env vars live in `config/`, never hardcoded.
 - Result status: PASS / WARN / FAIL / SKIP. Always keep the raw output.
 - Must be testable on a machine with no GPU (pytest + fixtures).
 
@@ -29,7 +29,7 @@ gputest/
   core.py         # Result, @check registry, run() helper, node executor (local / ssh), report writer
   checks.py       # all test functions (preflight, burn, bandwidth, dcgm, rdma, nccl)
   parsers.py      # pure parsing functions
-config.yaml       # levels (basic/standard/extended), sku settings, network modes, thresholds, NCCL env
+config/            # base, SKU, environment and tool configuration fragments
 fixtures/         # sample command outputs for mock mode and unit tests
 tests/            # pytest
 docs/             # reference PDF
@@ -44,8 +44,8 @@ The OCI shape name `BM.GPU.GB300.4` is the same for both variants. Never infer t
   - `planes == 4` -> multiplanar
   - field missing or `planes == 1` -> single-plane (confirm exact IMDS values against the OCI README)
   - IMDS unreachable (non-OCI) -> use `network.mode` from config
-- `network.mode: auto | single_plane | multiplanar` in `config.yaml` overrides detection.
-- All network-dependent checks (rdma_iface, rdma_perf, nccl env) branch on the detected mode. Keep mode-specific expectations in `config.yaml`, not in code.
+- `network.mode: auto | single_plane | multiplanar` in `config/` overrides detection.
+- All network-dependent checks (rdma_iface, rdma_perf, nccl env) branch on the detected mode. Keep mode-specific expectations in `config/`, not in code.
 
 Multiplanar facts (from the OCI manual):
 - Expect `rdma_vf_rail0..3` (customer-facing VFs, must be ACTIVE + LINK_UP), `vrf_r0..3` (each VF enslaved to its VRF),

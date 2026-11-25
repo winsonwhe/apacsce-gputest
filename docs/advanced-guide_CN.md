@@ -6,7 +6,7 @@
 
 ## 项目架构
 
-项目采用扁平的验证流程：CLI 从 `config.yaml` 读取配置组合，`gputest`
+项目采用扁平的验证流程：CLI 从 `config/` 读取配置组合，`gputest`
 注册并执行检查，每项检查都会保存原始命令输出，并生成 `PASS`、`WARN`、
 `FAIL` 或 `SKIP` 状态。
 
@@ -17,7 +17,7 @@
 │   ├── skus/<sku>.yaml         # 每个 GPU SKU 一个文件
 │   ├── environments/<env>.yaml # 环境覆盖配置
 │   └── tools/<toolset>.yaml    # 工具路径和可执行文件
-├── config.yaml                 # 旧版单文件配置（仍受支持）
+├── config/                     # 按基础配置、SKU、环境和工具集拆分的配置
 ├── requirements.txt            # 运行时 Python 依赖
 ├── gputest/                    # 应用源码
 │   ├── cli.py                  # 命令行入口
@@ -153,7 +153,7 @@ python3 -m gputest.cli setup-ssh \
 
 ## 检查目录
 
-下表中的“全部”指配置的 A10、A100、H100、H200、L40S、B200、GB200、B300 和 GB300。命令、参数和阈值来自 `config/`（也兼容旧版 `config.yaml`），发现和遥测过程还可能执行其他命令。配置了某个 SKU 并不保证其工具、硬件能力或经过校准的阈值可用。
+下表中的“全部”指配置的 A10、A100、H100、H200、L40S、B200、GB200、B300 和 GB300。命令、参数和阈值来自 `config/`，发现和遥测过程还可能执行其他命令。配置了某个 SKU 并不保证其工具、硬件能力或经过校准的阈值可用。
 
 使用 `python3 -m gputest.cli run --sku <sku> --tests <check>` 运行单项检查；多主机检查加上 `--nodes n1,n2`，使用 `--dry-run` 预览。运行 `python3 -m gputest.cli list` 查看当前注册列表。下表按用途组织，实际执行顺序由配置组合或 `--tests` 决定；类别保留 CLI 中的名称。
 burn 有两个独立的测试名称：`--tests gpu_burn` 使用 `gpu_burn.backend` 配置的后端
@@ -221,7 +221,7 @@ burn 有两个独立的测试名称：`--tests gpu_burn` 使用 `gpu_burn.backen
 | preflight | `imex` | IMEX 服务和多主机成员；节点配置文件、`systemctl`、IMDS | GB200、GB300；多主机 |
 | nccl | `nccl_allreduce`、`nccl_alltoall` | 多主机 NCCL 集合通信带宽；通过 `mpirun` 运行 nccl-tests | 多主机 |
 
-`nvbandwidth.cuda_arch` 目前只列出 A10、B300 和 GB300；其他 SKU 即使已安装二进制文件，也需先在 `config.yaml` 中添加架构。GB300 配置了 `nvlink: true`；B300 的部署相关 NVLink 行为尚待验证，因此跳过。多平面 RDMA 的 perftest 命令加上配置的 `ip vrf exec <vrf> numactl -N <node>` 前缀，并使用配置的 IPv6/GID 选项。
+`nvbandwidth.cuda_arch` 目前只列出 A10、B300 和 GB300；其他 SKU 即使已安装二进制文件，也需先在 `config/ 中添加架构。GB300 配置了 `nvlink: true`；B300 的部署相关 NVLink 行为尚待验证，因此跳过。多平面 RDMA 的 perftest 命令加上配置的 `ip vrf exec <vrf> numactl -N <node>` 前缀，并使用配置的 IPv6/GID 选项。
 
 `oca_version` 检查每台选定主机的 Oracle Cloud Agent 包版本：读取 `/etc/os-release`，在 Debian/Ubuntu 优先使用 `dpkg-query` 和 snap，在 Oracle Linux/RHEL 系列优先使用 `rpm`，也会探测其他包管理器。检查记录所有检测到的版本和原始输出，默认在所有配置组合中启用；设置 `oca_version.enabled: false` 可关闭。最低版本配置为 `1.64.0`，可通过带引号的数字 `oca_version.min_version` 调整。未配置最低版本或未检测到包时报告 WARN。比较只接受数字版本核心及可选的数字软件包发行号；epoch、预发布和其他后缀无法比较，报告 WARN。该检查不验证服务或插件健康状态。TODO(verify)：在实际 OCI 镜像上确认包名和查询输出；自定义或非软件包安装可能需要额外检测。
 
@@ -261,7 +261,7 @@ OCI shape 名称不会决定网络模式。自动模式根据目标主机 IMDS �
 - `filesystem_perf` 对本地 NVMe、共享文件系统或 Lustre 运行配置的 `fio` 顺序或随机读写任务。需独立验证挂载点和底层设备。读取需要已有测试文件并使用只读模式；写入在专用目录创建唯一文件并请求 fio 删除，需预留空间，并在超时、中断或失败后检查残留。各主机并行执行，结果按主机报告，并非同步聚合基准。工作负载、块大小、队列深度、文件大小和阈值应匹配验收计划，并考虑缓存、条带和共享负载。
 - `object_storage` 将已有对象下载到临时目录中的唯一文件，测量包含 CLI 启动的端到端吞吐后删除文件。`object_upload` 通过条件创建将已有源文件上传到专用前缀下的唯一对象，测量吞吐后删除该对象。各主机需配置 OCI CLI 身份认证、区域/配置文件和存储桶权限；上传需要创建和删除权限，下载需要读取权限和临时空间。请求和存储可能产生费用；超时、中断或清理失败可能留下文件或对象，应检查记录的路径或名称并清理。TODO(verify)：使用实际 OCI CLI 验证条件上传选项和分段上传行为。这些检查不测试元数据请求速率。
 
-配置 `config.yaml` 相应部分后，可预览：
+配置 `config/` 相应文件后，可预览：
 
 ```bash
 python3 -m gputest.cli run --sku gb300 --nodes n1,n2 \
@@ -292,7 +292,7 @@ python3 -m gputest.cli report results/run-YYYYMMDD-HHMMSS
 
 阈值来源标记为 **config default**、**PDF example** 或 **baseline**，并记录配置路径或基线文件/键。修改后的配置值仍标记为 config default，以区别示例和基线；报告会记录所用配置文件。手动替换来自 PDF 的限值时，也要设置 `threshold_source: config default`。命令或解析错误以及报告的数值计算失败不依赖性能阈值。
 
-随附的多平面 RDMA 示例（约 459 Gb/s、3.8–4.0 us）使用较宽限值（最低 321.3 Gb/s、最高 6 us），**只是示例，不是性能保证**。单平面 RDMA 和 NCCL 默认未设置限值，校准前为 WARN。可选的 `nccl.<mode>.example_reference_gbs.<collective>` 接受 2/16/32/64/80 等精确规模键，默认使用参考值的 80%；由于缺少经过验证的 PDF 规模测量，表格保持为空。nvbandwidth/BabelStream 的配置下限也需要校准。排障建议在 `config.yaml` 中，依据提供的手册摘录及 [OCI README](https://github.com/oracle-quickstart/oci-gpu-quickstarts/blob/main/nvidia/GB300/README-GB300.md)。
+随附的多平面 RDMA 示例（约 459 Gb/s、3.8–4.0 us）使用较宽限值（最低 321.3 Gb/s、最高 6 us），**只是示例，不是性能保证**。单平面 RDMA 和 NCCL 默认未设置限值，校准前为 WARN。可选的 `nccl.<mode>.example_reference_gbs.<collective>` 接受 2/16/32/64/80 等精确规模键，默认使用参考值的 80%；由于缺少经过验证的 PDF 规模测量，表格保持为空。nvbandwidth/BabelStream 的配置下限也需要校准。排障建议在 `config/ 中，依据提供的手册摘录及 [OCI README](https://github.com/oracle-quickstart/oci-gpu-quickstarts/blob/main/nvidia/GB300/README-GB300.md)。
 
 ## 已知良好基线
 
@@ -382,7 +382,7 @@ def test_persistence_parser_and_check(tmp_path):
     text = (ROOT / 'fixtures/persistence.txt').read_text()
     assert parsers.parse_persistence(text)['modes'] == ['Enabled'] * 4
     assert parsers.parse_persistence('')['modes'] == []
-    config = load_config(ROOT / 'config.yaml')
+    config = load_config(ROOT / 'config', sku='gb300')
     ctx = RunContext(config, 'gb300', [], mock=True, results_dir=tmp_path)
     assert run_checks(['persistence'], ctx)[0].status == 'PASS'
 ```

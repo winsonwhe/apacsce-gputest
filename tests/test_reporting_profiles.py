@@ -21,7 +21,7 @@ ROOT = Path(__file__).resolve().parents[1]
 
 
 def context(tmp_path, **kwargs):
-    config = load_config(ROOT / 'config.yaml')
+    config = load_config(ROOT / 'config')
     config['network']['mode'] = 'multiplanar'
     return RunContext(config, 'gb300', [], mock=True, network_mode='multiplanar',
                       results_dir=tmp_path, **kwargs)
@@ -35,7 +35,7 @@ def test_all_levels_have_registered_checks(tmp_path):
 
 
 def test_a10_profiles_omit_unavailable_fabric_checks(tmp_path):
-    cfg = load_config(ROOT / 'config.yaml')
+    cfg = load_config(ROOT / 'config')
     for level in ('a10_basic', 'a10_standard', 'a10_extended'):
         checks = set(cfg['levels'][level])
         assert not checks & {

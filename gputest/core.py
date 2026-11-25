@@ -354,25 +354,15 @@ def _deep_merge(base: dict, overlay: dict) -> dict:
 
 def load_config(path: str | Path = "config", *, sku: str | None = None,
                 environment: str | None = None) -> dict:
-    """Load a legacy YAML file or merge one modular configuration directory.
+    """Load the modular configuration directory.
 
-    A directory contains base.yaml, optional manifest.yaml, one environment
-    overlay, one tools overlay, and (when ``sku`` is supplied) one SKU file.
+    Runtime callers pass one SKU so only that SKU fragment is merged. When no
+    SKU is supplied, all SKU fragments are loaded for catalog and test
+    introspection helpers; the CLI always supplies ``--sku`` for a run.
     """
     root = Path(path)
-    if root.is_file():
-        with root.open() as handle:
-            config = yaml.safe_load(handle) or {}
-        # Older files may annotate level keys, for example
-        # ``basic(handover doc)``. Keep those files usable through the
-        # canonical CLI names as well.
-        levels = config.get("levels", {})
-        for key, value in list(levels.items()):
-            canonical = key.split("(", 1)[0]
-            levels.setdefault(canonical, value)
-        return config
     if not root.is_dir():
-        raise FileNotFoundError(f"configuration path does not exist: {root}")
+        raise FileNotFoundError(f"configuration directory does not exist: {root}")
 
     manifest_path = root / "manifest.yaml"
     manifest = {}
@@ -384,8 +374,8 @@ def load_config(path: str | Path = "config", *, sku: str | None = None,
     files = [root / "base.yaml",
              root / "environments" / f"{selected_environment}.yaml",
              root / "tools" / f"{selected_tools}.yaml"]
-    if sku:
-        files.append(root / "skus" / f"{sku}.yaml")
+    sku_files = [root / "skus" / f"{sku}.yaml"] if sku else sorted((root / "skus").glob("*.yaml"))
+    files.extend(sku_files)
     config = {}
     for file_path in files:
         if not file_path.exists():

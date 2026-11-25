@@ -28,7 +28,7 @@ def fixture(name):
 
 @pytest.fixture
 def ctx(tmp_path):
-    config = load_config(FIXTURES.parent / 'config.yaml')
+    config = load_config(FIXTURES.parent / 'config')
     for key in ('nvbandwidth', 'babelstream'):
         config[key]['build_if_missing'] = False
     return RunContext(config, 'gb300', [], mock=True, results_dir=tmp_path)

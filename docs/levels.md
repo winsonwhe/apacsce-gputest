@@ -8,4 +8,4 @@
 
 A10 uses `a10_basic`, `a10_standard` and `a10_extended`. These profiles omit RDMA and multi-host NCCL for the supported no-RDMA deployment. Storage, Lustre, object storage and optional network checks are not in a default level because they require site-specific configuration.
 
-Durations and diagnostic levels are configured under `level_settings` and `dcgmi.diag_levels` in `config.yaml`.
+Durations and diagnostic levels are configured under `level_settings` and `dcgmi.diag_levels` in `config/`.

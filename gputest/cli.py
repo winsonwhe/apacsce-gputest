@@ -203,7 +203,7 @@ def cmd_run(args, config: dict) -> None:
         "burn_duration_s": ctx.burn_duration_s(),
         "dry_run": ctx.dry_run,
         "mock": ctx.mock,
-        "config_file": str(Path(getattr(args, "config", "config.yaml")).resolve()),
+        "config_file": str(Path(getattr(args, "config", "config")).resolve()),
     }
     jpath = write_json(results, run_meta, results_dir)
     mpath = write_markdown(results, run_meta, results_dir)
@@ -373,7 +373,7 @@ def build_parser() -> argparse.ArgumentParser:
     run_p.add_argument("--environment",
                        help="Configuration environment overlay (default: manifest setting).")
     run_p.add_argument("--config", default="config",
-                       help="Path to a config directory or legacy YAML file (default: config/).")
+                       help="Path to the modular config directory (default: config/).")
 
     # report
     rep_p = sub.add_parser("report", help="Re-render a saved result directory.")
@@ -391,7 +391,7 @@ def build_parser() -> argparse.ArgumentParser:
                        help="Private key to install on every node (default: ~/.ssh/id_ed25519); "
                             "its public key must already allow bootstrap SSH.")
     ssh_p.add_argument("--config", default="config",
-                       help="Path to a config directory or legacy YAML file (default: config/).")
+                       help="Path to the modular config directory (default: config/).")
 
     return parser
 

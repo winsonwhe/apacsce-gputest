@@ -8,7 +8,6 @@ Validate NVIDIA GPU hosts with preflight, stress, bandwidth, DCGM, RDMA and NCCL
 
 ```text
 config/            # Modular base, SKU, environment and tool configurations
-config.yaml       # Legacy single-file configuration (still supported)
 gputest/          # CLI, runner, checks, parsers and reporting
 tests/            # CPU-only pytest coverage
 fixtures/         # Mock command output
@@ -18,7 +17,7 @@ results/          # Reports and raw command output
 
 The CLI loads a level, runs registered checks through the shared command runner, and writes `PASS`, `WARN`, `FAIL` or `SKIP` results with raw output.
 
-The default configuration is modular. `config/base.yaml` contains shared settings, `config/skus/<sku>.yaml` contains one SKU, `config/environments/<env>.yaml` contains environment overrides, and `config/tools/<toolset>.yaml` contains executable paths. A run loads only the selected SKU and environment; pass `--environment <env>` to select an overlay. The legacy `config.yaml` remains supported with `--config config.yaml`.
+The default configuration is modular. `config/base.yaml` contains shared settings, `config/skus/<sku>.yaml` contains one SKU, `config/environments/<env>.yaml` contains environment overrides, and `config/tools/<toolset>.yaml` contains executable paths. A run loads only the selected SKU and environment; pass `--environment <env>` to select an overlay. The modular `config/` directory is the only supported configuration source.
 
 ## Install
 

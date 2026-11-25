@@ -28,6 +28,6 @@ python3 -m pytest -q
 
 该命令在跳板机上准备 Python、Git、curl 和 SSH，在清单中的每台 GPU 节点上安装系统构建依赖并构建 GPU 工具。跳板机不需要 `nvidia-smi`、`nvcc` 或 CUDA；GPU 节点需要预先安装 CUDA。若只需要控制端，不安装远程 GPU 工具，则使用 `./install.sh --control-plane --python --ssh`。
 
-实际硬件验证还需要按检查类型准备驱动/CUDA、DCGM、`numactl`、iproute2、perftest、GNU `timeout`、MPI/UCX 和 nccl-tests。工具路径和阈值配置在 `config.yaml` 中。
+实际硬件验证还需要按检查类型准备驱动/CUDA、DCGM、`numactl`、iproute2、perftest、GNU `timeout`、MPI/UCX 和 nccl-tests。工具路径和阈值配置在 `config/ 中。
 
 模拟运行只需要 Python、PyYAML 和项目测试工具。

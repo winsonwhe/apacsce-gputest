@@ -9,8 +9,8 @@ standard library plus PyYAML; no plugin framework or GPU dependency for mock run
 
 ## Project architecture
 
-The project keeps the validation flow flat: the CLI reads a level from
-`config.yaml`, `gputest` registers and runs checks, and each check stores its raw
+The project keeps the validation flow flat: the CLI reads a level from the selected files under
+`config/`, `gputest` registers and runs checks, and each check stores its raw
 command output together with a `PASS`, `WARN`, `FAIL` or `SKIP` result.
 
 
@@ -21,7 +21,7 @@ command output together with a `PASS`, `WARN`, `FAIL` or `SKIP` result.
 │   ├── skus/<sku>.yaml         # One hardware SKU per file
 │   ├── environments/<env>.yaml # Environment-specific overrides
 │   └── tools/<toolset>.yaml    # Tool paths and executables
-├── config.yaml                 # Legacy single-file configuration (still supported)
+├── config/                     # Modular base, SKU, environment and tool configurations
 ├── requirements.txt            # Runtime Python dependency
 ├── gputest/                    # Application source code
 │   ├── cli.py                  # Command-line entry point
@@ -66,7 +66,7 @@ must already be cloned; `install.sh` does not clone or update Git repositories.
 On GPU hosts, provision the NVIDIA driver/CUDA, Fabric Manager where applicable,
 DCGM, numactl, iproute2 (`ip`, `rdma`, `ss`), perftest, GNU `timeout`, and MPI/UCX
 with SSH support. Build nccl-tests (`all_reduce_perf` and `alltoall_perf`) and configure
-executable paths under `tools` in `config.yaml`. Required versions depend on the
+executable paths under `tools` in `config/`. Required versions depend on the
 SKU/deployment; configured minima and performance floors need hardware validation.
 
 ### Dependency tools
@@ -77,7 +77,7 @@ their documentation or upstream projects:
 | Tool | Purpose | Documentation |
 |---|---|---|
 | [Python](https://docs.python.org/3/) | Runs the CLI and validation checks; Python 3.10 or newer is required. | [Python documentation](https://docs.python.org/3/) |
-| [PyYAML](https://pyyaml.org/wiki/PyYAMLDocumentation) | Loads thresholds, levels, tool paths and NCCL settings from the modular `config/` directory (or legacy `config.yaml`). | [PyYAML documentation](https://pyyaml.org/wiki/PyYAMLDocumentation) |
+| [PyYAML](https://pyyaml.org/wiki/PyYAMLDocumentation) | Loads thresholds, levels, tool paths and NCCL settings from the modular `config/` directory (). | [PyYAML documentation](https://pyyaml.org/wiki/PyYAMLDocumentation) |
 | [pytest](https://docs.pytest.org/) | Runs the unit and orchestration tests, including CPU-only fixture tests. | [pytest documentation](https://docs.pytest.org/) |
 | [Ruff](https://docs.astral.sh/ruff/) | Checks Python code for lint errors and common style or correctness issues. | [Ruff documentation](https://docs.astral.sh/ruff/) |
 | [NVIDIA Driver](https://docs.nvidia.com/datacenter/tesla/), [CUDA Toolkit](https://docs.nvidia.com/cuda/) | Provides GPU access and CUDA tooling for hardware validation and CUDA-based workloads. | [NVIDIA documentation](https://docs.nvidia.com/) |
@@ -128,7 +128,7 @@ sudo cmake --build /opt/BabelStream/build --clean-first -j 4
 ```
 
 Ensure `tools.babelstream` points to that binary on each target host. An existing
-binary is reused even when the SKU-specific architecture in `config.yaml` differs.
+binary is reused even when the SKU-specific architecture in `config/` differs.
 
 The installer accepts modules when a staged setup is needed. Run
 `./install.sh --help` for the complete list. With no options it runs every
@@ -229,7 +229,7 @@ a bounded workload.
 
 All means the configured SKUs: A10, A100, H100, H200, L40S, B200, GB200,
 B300 and GB300. The commands below show the main underlying commands; paths,
-arguments and thresholds come from the selected files under `config/` (the legacy `config.yaml` remains supported), and discovery or telemetry can
+arguments and thresholds come from the selected files under `config/` (the legacy `config/` is the only supported configuration source), and discovery or telemetry can
 run additional commands. A configured SKU is not a guarantee that its tools,
 hardware capabilities or calibrated thresholds are available.
 
@@ -316,7 +316,7 @@ The Category column retains the CLI registry category.
 | nccl | `nccl_alltoall` | Multi-host NCCL all-to-all bandwidth | `mpirun [host, rank and environment options] alltoall_perf -b 1G -e 16G -f 2 -g 1 -n 50` | All; multi-host |
 
 `nvbandwidth.cuda_arch` currently lists only A10, B300 and GB300; the other
-SKUs need an architecture entry in `config.yaml` before this check can run,
+SKUs need an architecture entry in `config/` before this check can run,
 even with a preinstalled binary. GB300 has `nvlink: true` configured and is
 checked with `nvidia-smi nvlink -s`; B300 remains skipped until its deployment
 specific NVLink behavior is verified.
@@ -469,7 +469,7 @@ WARN rather than claiming that a measured rate meets an acceptance target.
   up. TODO(verify): validate conditional upload options and multipart behavior with
   the deployed OCI CLI. These checks do not benchmark metadata request rates.
 
-For example, after populating the corresponding sections in `config.yaml`:
+For example, after populating the corresponding sections in `config/`:
 
 ```bash
 python3 -m gputest.cli run --sku gb300 --nodes n1,n2 \
@@ -531,7 +531,7 @@ Single-plane RDMA and NCCL limits default to unset (WARN until calibrated).
 Optional `nccl.<mode>.example_reference_gbs.<collective>` accepts exact scale keys
 such as 2/16/32/64/80, using 80% by default. Tables remain empty because verified
 PDF scale measurements are unavailable. Existing nvbandwidth/BabelStream config
-floors also require calibration. Troubleshooting guidance lives in config.yaml;
+floors also require calibration. Troubleshooting guidance lives in config/;
 it follows supplied manual excerpts and the
 [OCI README](https://github.com/oracle-quickstart/oci-gpu-quickstarts/blob/main/nvidia/GB300/README-GB300.md).
 
@@ -648,7 +648,7 @@ def test_persistence_parser_and_check(tmp_path):
     text = (ROOT / 'fixtures/persistence.txt').read_text()
     assert parsers.parse_persistence(text)['modes'] == ['Enabled'] * 4
     assert parsers.parse_persistence('')['modes'] == []
-    config = load_config(ROOT / 'config.yaml')
+    config = load_config(ROOT / 'config', sku='gb300')
     ctx = RunContext(config, 'gb300', [], mock=True, results_dir=tmp_path)
     assert run_checks(['persistence'], ctx)[0].status == 'PASS'
 ```

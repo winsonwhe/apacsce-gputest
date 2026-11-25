@@ -30,7 +30,7 @@ def test_setup_ssh_uses_per_host_user(tmp_path, monkeypatch, capsys):
     hosts.write_text('alice@host1\nhost2\n')
     monkeypatch.setattr(cli.Path, 'home', classmethod(lambda cls: tmp_path))
     args = build_parser().parse_args(['setup-ssh', '--hostfile', str(hosts), '--user', 'opc', '--dry-run'])
-    cli.cmd_setup_ssh(args, cli.load_config('config.yaml'))
+    cli.cmd_setup_ssh(args, cli.load_config('config'))
     output = capsys.readouterr().out
     assert 'alice@host1' in output
     assert 'opc@host2' in output
@@ -43,7 +43,7 @@ def test_setup_ssh_accepts_shared_private_key(tmp_path, monkeypatch, capsys):
     args = build_parser().parse_args([
         'setup-ssh', '--nodes', 'host1,host2', '--private-key', str(key), '--dry-run'
     ])
-    cli.cmd_setup_ssh(args, cli.load_config('config.yaml'))
+    cli.cmd_setup_ssh(args, cli.load_config('config'))
     output = capsys.readouterr().out
     assert f'-i {key}' in output
     assert 'scp' in output

@@ -28,6 +28,6 @@ From a jump host without CUDA or a GPU, use:
 
 This prepares Python, Git, curl and SSH locally, then installs build dependencies and builds GPU tools on every GPU node in the inventory. The jump host does not need `nvidia-smi`, `nvcc`, or CUDA; GPU nodes need CUDA installed beforehand. For control-plane setup alone, use `./install.sh --control-plane --python --ssh`.
 
-Hardware validation also needs the driver/CUDA, DCGM, `numactl`, iproute2, perftest, GNU `timeout`, MPI/UCX and nccl-tests as required by the selected checks. Configure paths and thresholds in `config/` (or the legacy `config.yaml`).
+Hardware validation also needs the driver/CUDA, DCGM, `numactl`, iproute2, perftest, GNU `timeout`, MPI/UCX and nccl-tests as required by the selected checks. Configure paths and thresholds in `config/`.
 
 Mock runs only need Python, PyYAML and the project test tools.

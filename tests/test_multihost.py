@@ -17,7 +17,7 @@ ROOT = Path(__file__).resolve().parents[1]
 
 
 def context(tmp_path, mode='multiplanar', sku='gb300', **kwargs):
-    config = load_config(ROOT / 'config.yaml')
+    config = load_config(ROOT / 'config')
     if sku == 'a10':
         config['skus']['a10']['disabled_checks'] = []  # Exercise RDMA-capable deployments.
         config['network']['single_plane']['a10']['expected_active_hcas'] = 2
@@ -350,7 +350,7 @@ def test_imex_only_validates_selected_nccl_hosts(tmp_path, monkeypatch):
     assert set(service_nodes) == {'n1', 'n2'}
 
 
-@pytest.mark.parametrize('sku', list(load_config(ROOT / 'config.yaml')['skus']))
+@pytest.mark.parametrize('sku', list(load_config(ROOT / 'config')['skus']))
 def test_local_alltoall_for_every_sku(tmp_path, sku):
     ctx = context(tmp_path, sku=sku)
     ctx.nodes = []

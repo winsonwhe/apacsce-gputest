@@ -7,7 +7,11 @@
 ## 项目架构
 
 ```text
-config.yaml       # SKU 配置、级别、阈值和工具路径
+config/            # 按基础配置、SKU、环境和工具集拆分的配置
+│   ├── base.yaml               # 公共级别、检查、阈值和运行时设置
+│   ├── skus/<sku>.yaml         # 每个 GPU SKU 一个文件
+│   ├── environments/<env>.yaml # 环境覆盖配置
+│   └── tools/<toolset>.yaml    # 工具路径和可执行文件
 gputest/          # CLI、执行器、检查、解析器和报告
 tests/            # 可在无 GPU 环境运行的 pytest
 fixtures/         # 模拟命令输出
@@ -71,4 +75,4 @@ python3 -m gputest.cli run --sku gb300 --level extended --nodes host1,host2
 
 A10 使用专用的 `a10_basic`、`a10_standard` 和 `a10_extended` 配置，默认不包含 RDMA 和多机 NCCL。存储和对象存储检查需要站点路径或凭据，因此默认按需选择。详见[级别说明](doc/levels_CN.md)。
 
-默认配置采用模块化目录：`config/base.yaml` 保存公共配置，`config/skus/<sku>.yaml` 保存单个 SKU，`config/environments/<env>.yaml` 保存环境覆盖，`config/tools/<toolset>.yaml` 保存工具路径。一次运行只加载用户选择的 SKU 和环境；可使用 `--environment <env>` 选择环境。旧版 `config.yaml` 仍可通过 `--config config.yaml` 使用。
+默认配置采用模块化目录：`config/base.yaml` 保存公共配置，`config/skus/<sku>.yaml` 保存单个 SKU，`config/environments/<env>.yaml` 保存环境覆盖，`config/tools/<toolset>.yaml` 保存工具路径。一次运行只加载用户选择的 SKU 和环境；可使用 `--environment <env>` 选择环境。

@@ -24,7 +24,7 @@ from gputest.core import (
 )
 
 FIXTURE_DIR = ROOT / "fixtures"
-CONFIG_PATH = ROOT / "config.yaml"
+CONFIG_PATH = ROOT / "config"
 
 
 # ---------------------------------------------------------------------------

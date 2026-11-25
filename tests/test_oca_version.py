@@ -9,7 +9,7 @@ ROOT = Path(__file__).resolve().parents[1]
 
 
 def context(tmp_path, **kwargs):
-    return RunContext(load_config(ROOT / 'config.yaml'), 'gb300', [],
+    return RunContext(load_config(ROOT / 'config'), 'gb300', [],
                       results_dir=tmp_path, **kwargs)
 
 

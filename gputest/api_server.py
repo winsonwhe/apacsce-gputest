@@ -147,8 +147,22 @@ class Controller:
         ssh_wrapper.chmod(0o700)
         config = load_config(ROOT / 'config', sku=sku)
         config['tools']['ssh'] = str(ssh_wrapper)
-        config_path = directory / 'config.yaml'
-        config_path.write_text(yaml.safe_dump(config))
+        # The CLI accepts modular directories only. Store a job-local snapshot
+        # with the merged base and selected SKU fragment.
+        config_path = directory / 'config'
+        (config_path / 'skus').mkdir(parents=True)
+        base_config = dict(config)
+        sku_config = base_config.pop('skus')[sku]
+        for key in ('_config_source', '_environment', '_sku'):
+            base_config.pop(key, None)
+        (config_path / 'base.yaml').write_text(yaml.safe_dump(base_config))
+        (config_path / 'skus' / f'{sku}.yaml').write_text(
+            yaml.safe_dump({'skus': {sku: sku_config}}))
+        (config_path / 'manifest.yaml').write_text('default_environment: default\ndefault_tools: default\n')
+        (config_path / 'environments').mkdir()
+        (config_path / 'tools').mkdir()
+        (config_path / 'environments' / 'default.yaml').write_text('{}\n')
+        (config_path / 'tools' / 'default.yaml').write_text('{}\n')
         cmd = [sys.executable, '-u', '-m', 'gputest.cli', 'run', '--config', str(config_path),
                '--sku', sku, '--level', level, '--tests', ','.join(tests), '--nodes', ','.join(hosts),
                '--network-mode', network, '--output-dir', str(directory / 'output')]
