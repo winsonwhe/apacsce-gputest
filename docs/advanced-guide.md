@@ -16,7 +16,12 @@ command output together with a `PASS`, `WARN`, `FAIL` or `SKIP` result.
 
 ```text
 .
-├── config.yaml                 # SKUs, levels, thresholds, tools, network and NCCL settings
+├── config/                     # Modular base, SKU, environment and tool configurations
+│   ├── base.yaml               # Shared levels, checks, thresholds and runtime settings
+│   ├── skus/<sku>.yaml         # One hardware SKU per file
+│   ├── environments/<env>.yaml # Environment-specific overrides
+│   └── tools/<toolset>.yaml    # Tool paths and executables
+├── config.yaml                 # Legacy single-file configuration (still supported)
 ├── requirements.txt            # Runtime Python dependency
 ├── gputest/                    # Application source code
 │   ├── cli.py                  # Command-line entry point
@@ -72,7 +77,7 @@ their documentation or upstream projects:
 | Tool | Purpose | Documentation |
 |---|---|---|
 | [Python](https://docs.python.org/3/) | Runs the CLI and validation checks; Python 3.10 or newer is required. | [Python documentation](https://docs.python.org/3/) |
-| [PyYAML](https://pyyaml.org/wiki/PyYAMLDocumentation) | Loads thresholds, levels, tool paths and NCCL settings from `config.yaml`. | [PyYAML documentation](https://pyyaml.org/wiki/PyYAMLDocumentation) |
+| [PyYAML](https://pyyaml.org/wiki/PyYAMLDocumentation) | Loads thresholds, levels, tool paths and NCCL settings from the modular `config/` directory (or legacy `config.yaml`). | [PyYAML documentation](https://pyyaml.org/wiki/PyYAMLDocumentation) |
 | [pytest](https://docs.pytest.org/) | Runs the unit and orchestration tests, including CPU-only fixture tests. | [pytest documentation](https://docs.pytest.org/) |
 | [Ruff](https://docs.astral.sh/ruff/) | Checks Python code for lint errors and common style or correctness issues. | [Ruff documentation](https://docs.astral.sh/ruff/) |
 | [NVIDIA Driver](https://docs.nvidia.com/datacenter/tesla/), [CUDA Toolkit](https://docs.nvidia.com/cuda/) | Provides GPU access and CUDA tooling for hardware validation and CUDA-based workloads. | [NVIDIA documentation](https://docs.nvidia.com/) |
@@ -224,7 +229,7 @@ a bounded workload.
 
 All means the configured SKUs: A10, A100, H100, H200, L40S, B200, GB200,
 B300 and GB300. The commands below show the main underlying commands; paths,
-arguments and thresholds come from `config.yaml`, and discovery or telemetry can
+arguments and thresholds come from the selected files under `config/` (the legacy `config.yaml` remains supported), and discovery or telemetry can
 run additional commands. A configured SKU is not a guarantee that its tools,
 hardware capabilities or calibrated thresholds are available.
 
@@ -338,9 +343,9 @@ The short profile summary is:
 
 | Level | Purpose |
 |---|---|
-| `basic` | Host-local preflight and short GPU burn; no RDMA or multi-host requirement. |
-| `standard` | Basic plus bandwidth, BabelStream, DCGM, SSH and RDMA checks in the generic profile. |
-| `extended` | Standard plus local NCCL, placement/IMEX where supported and multi-host NCCL. |
+| `basic` | All tests from the GPU Handover Doc. |
+| `standard` | Basic plus cross-node, cross-rack, IP ping, mis-cabling, flapping, deep GPU tests, and related extended validation. |
+| `extended` | Custom Image Test. |
 
 A10 uses dedicated `a10_basic`, `a10_standard` and `a10_extended` profiles without RDMA or multi-host NCCL. Storage and object-store checks are opt-in. See [levels.md](levels.md) for the concise matrix.
 
@@ -407,10 +412,11 @@ fallback; pass `--network-mode` to preview the desired commands.
 
 ### Optional network and storage acceptance checks
 
-The `extended` level includes the following checks, each disabled until its own
-configuration is enabled and its required paths or interfaces are supplied. They
-can also be selected with `--tests`. Configure tool paths under `tools` in
-`config.yaml`; `ethtool`, `lldpcli`, Linux `ping`, `iperf3`, `findmnt`, `lfs`,
+The following optional checks can be enabled independently for Standard and
+Extended validation. Each remains disabled until its own configuration is enabled
+and its required paths or interfaces are supplied. They can also be selected
+with `--tests`. Configure tool paths under `tools` in
+`config/tools/<toolset>.yaml`; `ethtool`, `lldpcli`, Linux `ping`, `iperf3`, `findmnt`, `lfs`,
 `fio`, and the OCI CLI are needed only for the checks that use them. Run with
 `--dry-run` to preview commands on all selected hosts before running workloads.
 All performance thresholds are deployment-specific; an absent threshold reports
@@ -615,7 +621,7 @@ def persistence(ctx: RunContext) -> Result:
 ```
 
 ```yaml
-# config.yaml (also add persistence to a level if desired)
+# config/base.yaml (also add persistence to a level if desired)
 persistence: {expected: Enabled, timeout_s: 10}
 # Add under the existing troubleshooting dictionary:
 # persistence: ['Check persistence mode with nvidia-smi; apply site policy before retesting.']
@@ -654,7 +660,7 @@ relying on hardware-specific parsing.
 ## Hardware validation still required
 
 See [hardware-validation.md](hardware-validation.md) for the complete
-check-by-check list. No GPU hardware or SSH/MPI cluster was used
+check-by-check list, or read the [Chinese version](hardware-validation_CN.md). No GPU hardware or SSH/MPI cluster was used
 for CPU-only verification. The reference PDFs are absent from this checkout;
 PDF-derived NUMA mapping, options and performance examples retain `TODO(verify)`.
 Fixture provenance is recorded in [fixtures/README.md](../fixtures/README.md).

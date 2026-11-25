@@ -1,0 +1,13 @@
+skus:
+  h200:
+    gpu_count: 8
+    gpu_model_pattern: H200
+    mem_mib_per_gpu: 141312
+    memory_tolerance_mib: 2048
+    numa_cpu_nodes_min: 1
+    driver_min: '550'
+    cuda_min: '12.4'
+    fabricmanager_required: true
+    imex_capable: false
+    nvlink: true
+    arch: x86_64

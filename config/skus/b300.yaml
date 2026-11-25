@@ -1,0 +1,12 @@
+skus:
+  b300:
+    memory_tolerance_mib: 512
+    numa_cpu_nodes_min: 2
+    gpu_count: 8
+    gpu_model_pattern: B300
+    mem_mib_per_gpu: 275040
+    driver_min: '590'
+    cuda_min: '13.1'
+    fabricmanager_required: true
+    imex_capable: false
+    arch: x86_64

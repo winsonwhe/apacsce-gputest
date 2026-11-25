@@ -12,7 +12,12 @@
 
 ```text
 .
-├── config.yaml                 # SKU、配置组合、阈值、工具、网络和 NCCL 设置
+├── config/                     # 按基础配置、SKU、环境和工具集拆分的配置
+│   ├── base.yaml               # 公共级别、检查、阈值和运行时设置
+│   ├── skus/<sku>.yaml         # 每个 GPU SKU 一个文件
+│   ├── environments/<env>.yaml # 环境覆盖配置
+│   └── tools/<toolset>.yaml    # 工具路径和可执行文件
+├── config.yaml                 # 旧版单文件配置（仍受支持）
 ├── requirements.txt            # 运行时 Python 依赖
 ├── gputest/                    # 应用源码
 │   ├── cli.py                  # 命令行入口
@@ -51,14 +56,14 @@ chmod +x install.sh
 `ubuntu`。运行前需要准备 `sudo` 权限、可访问系统软件包仓库的网络，
 以及交互式终端。仓库必须预先克隆完成；`install.sh` 不会克隆或更新 Git 仓库。
 
-在 GPU 主机上，需要安装 NVIDIA 驱动和 CUDA、适用时安装 Fabric Manager，以及 DCGM、numactl、iproute2（`ip`、`rdma`、`ss`）、perftest、GNU `timeout` 和支持 SSH 的 MPI/UCX。构建 nccl-tests（`all_reduce_perf` 和 `alltoall_perf`），并在 `config.yaml` 的 `tools` 中配置可执行文件路径。版本要求随 SKU 和部署环境变化；配置中的最低版本和性能下限需要通过真实硬件验证。
+在 GPU 主机上，需要安装 NVIDIA 驱动和 CUDA、适用时安装 Fabric Manager，以及 DCGM、numactl、iproute2（`ip`、`rdma`、`ss`）、perftest、GNU `timeout` 和支持 SSH 的 MPI/UCX。构建 nccl-tests（`all_reduce_perf` 和 `alltoall_perf`），并在 `config/tools/<toolset>.yaml` 的 `tools` 中配置可执行文件路径。版本要求随 SKU 和部署环境变化；配置中的最低版本和性能下限需要通过真实硬件验证。
 
 ### 依赖工具
 
 | 工具 | 用途及文档 |
 |---|---|
 | [Python](https://docs.python.org/3/) | 运行 CLI 和检查；要求 3.10 或更新版本。 |
-| [PyYAML](https://pyyaml.org/wiki/PyYAMLDocumentation) | 加载 `config.yaml` 中的阈值、配置组合、工具路径和 NCCL 设置。 |
+| [PyYAML](https://pyyaml.org/wiki/PyYAMLDocumentation) | 加载 `config/` 中拆分文件的阈值、配置组合、工具路径和 NCCL 设置。 |
 | [pytest](https://docs.pytest.org/) | 运行单元测试和编排测试，包括仅使用 CPU 的样例测试。 |
 | [Ruff](https://docs.astral.sh/ruff/) | 检查 Python 代码的风格和常见问题。 |
 | [NVIDIA 驱动](https://docs.nvidia.com/datacenter/tesla/)、[CUDA Toolkit](https://docs.nvidia.com/cuda/) | 提供 GPU 访问和 CUDA 工具。 |
@@ -148,7 +153,7 @@ python3 -m gputest.cli setup-ssh \
 
 ## 检查目录
 
-下表中的“全部”指配置的 A10、A100、H100、H200、L40S、B200、GB200、B300 和 GB300。命令、参数和阈值来自 `config.yaml`，发现和遥测过程还可能执行其他命令。配置了某个 SKU 并不保证其工具、硬件能力或经过校准的阈值可用。
+下表中的“全部”指配置的 A10、A100、H100、H200、L40S、B200、GB200、B300 和 GB300。命令、参数和阈值来自 `config/`（也兼容旧版 `config.yaml`），发现和遥测过程还可能执行其他命令。配置了某个 SKU 并不保证其工具、硬件能力或经过校准的阈值可用。
 
 使用 `python3 -m gputest.cli run --sku <sku> --tests <check>` 运行单项检查；多主机检查加上 `--nodes n1,n2`，使用 `--dry-run` 预览。运行 `python3 -m gputest.cli list` 查看当前注册列表。下表按用途组织，实际执行顺序由配置组合或 `--tests` 决定；类别保留 CLI 中的名称。
 burn 有两个独立的测试名称：`--tests gpu_burn` 使用 `gpu_burn.backend` 配置的后端
@@ -224,9 +229,9 @@ burn 有两个独立的测试名称：`--tests gpu_burn` 使用 `gpu_burn.backen
 
 | 级别 | 用途 |
 |---|---|
-| `basic` | 主机本地预检和短时 GPU 压力测试；不要求 RDMA 或多机。 |
-| `standard` | basic 加带宽、BabelStream、DCGM、SSH 和通用配置中的 RDMA 检查。 |
-| `extended` | standard 加本机 NCCL、适用时的 placement/IMEX 和多机 NCCL。 |
+| `basic` | GPU Handover Doc 中的全部测试。 |
+| `standard` | basic 加跨节点、跨机架、IP ping、错缆（mis-cabling）、链路抖动（flapping）、深层 GPU 测试及相关扩展验证。 |
+| `extended` | Custom Image Test（自定义镜像测试）。 |
 
 A10 使用专用的 `a10_basic`、`a10_standard` 和 `a10_extended`，默认不包含 RDMA 和多机 NCCL。存储和对象存储检查按需选择。详见[级别说明](levels_CN.md)。
 
@@ -247,7 +252,7 @@ OCI shape 名称不会决定网络模式。自动模式根据目标主机 IMDS �
 
 ### 可选网络和存储验收检查
 
-`extended` 包含以下检查，但各项在启用自己的配置并提供所需路径或接口之前均处于禁用状态，也可通过 `--tests` 选择。工具路径在 `config.yaml` 的 `tools` 下配置；`ethtool`、`lldpcli`、Linux `ping`、`iperf3`、`findmnt`、`lfs`、`fio` 和 OCI CLI 仅为使用它们的检查所需。先用 `--dry-run` 预览所有主机的命令。性能阈值取决于部署环境；未配置阈值时报告 WARN。
+以下可选检查可独立用于 Standard 和 Extended 验收。各项在启用自己的配置并提供所需路径或接口之前均处于禁用状态，也可通过 `--tests` 选择。工具路径在 `config/tools/<toolset>.yaml` 的 `tools` 下配置；`ethtool`、`lldpcli`、Linux `ping`、`iperf3`、`findmnt`、`lfs`、`fio` 和 OCI CLI 仅为使用它们的检查所需。先用 `--dry-run` 预览所有主机的命令。性能阈值取决于部署环境；未配置阈值时报告 WARN。
 
 - `nic_inventory` 使用 `ethtool` 检查各配置网卡的载波和协商速率，并可选比较 LLDP 机箱和端口标识。LLDP 需要交换机通告和主机代理；缺少对端时 WARN。各主机上的接口必须能被 `ethtool` 看到，虚拟功能可能不提供物理链路速率。LLDP 和连通性可以发现部分接线错误，但不能证明所有接线正确；需验证部署的 `lldpcli` 字段和预期交换机端口清单。
 - `network_ping` 检查明确配置的 IPv4/IPv6 源和目标路径，可选源 VRF。每条路径的 `node` 指向 `--nodes` 中的名称，省略时本地执行。仅列出当前部署中预期可通信的路径。`sample_count: 0` 检查全部路径；正数使用 `seed` 对每台源主机进行可复现采样。丢包超过 `max_loss_pct` 时失败。需允许 ICMP、路由、地址和 VRF 访问；同机 ping 可能不经过网卡或交换机。
@@ -350,7 +355,7 @@ def persistence(ctx: RunContext) -> Result:
 ```
 
 ```yaml
-# config.yaml (also add persistence to a level if desired)
+# config/base.yaml (also add persistence to a level if desired)
 persistence: {expected: Enabled, timeout_s: 10}
 # Add under the existing troubleshooting dictionary:
 # persistence: ['Check persistence mode with nvidia-smi; apply site policy before retesting.']
@@ -387,4 +392,4 @@ def test_persistence_parser_and_check(tmp_path):
 
 ## 仍需硬件验证
 
-逐项清单见 [hardware-validation.md](hardware-validation.md)。仅 CPU 验证未使用 GPU 硬件或 SSH/MPI 集群。本仓库缺少参考 PDF；来自 PDF 的 NUMA 映射、选项和性能示例仍保留 `TODO(verify)`。样例来源记录在 [fixtures/README.md](../fixtures/README.md)。
+逐项清单见 [hardware-validation_CN.md](hardware-validation_CN.md)。仅 CPU 验证未使用 GPU 硬件或 SSH/MPI 集群。本仓库缺少参考 PDF；来自 PDF 的 NUMA 映射、选项和性能示例仍保留 `TODO(verify)`。样例来源记录在 [fixtures/README.md](../fixtures/README.md)。

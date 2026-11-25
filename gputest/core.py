@@ -342,9 +342,64 @@ def _save_raw(cmd: list[str], stdout: str, stderr: str, results_dir: Path | None
 # Config loader
 # ---------------------------------------------------------------------------
 
-def load_config(path: str | Path = "config.yaml") -> dict:
-    with open(path) as f:
-        return yaml.safe_load(f)
+def _deep_merge(base: dict, overlay: dict) -> dict:
+    """Merge nested mappings while replacing scalar and sequence values."""
+    for key, value in overlay.items():
+        if isinstance(value, dict) and isinstance(base.get(key), dict):
+            _deep_merge(base[key], value)
+        else:
+            base[key] = value
+    return base
+
+
+def load_config(path: str | Path = "config", *, sku: str | None = None,
+                environment: str | None = None) -> dict:
+    """Load a legacy YAML file or merge one modular configuration directory.
+
+    A directory contains base.yaml, optional manifest.yaml, one environment
+    overlay, one tools overlay, and (when ``sku`` is supplied) one SKU file.
+    """
+    root = Path(path)
+    if root.is_file():
+        with root.open() as handle:
+            config = yaml.safe_load(handle) or {}
+        # Older files may annotate level keys, for example
+        # ``basic(handover doc)``. Keep those files usable through the
+        # canonical CLI names as well.
+        levels = config.get("levels", {})
+        for key, value in list(levels.items()):
+            canonical = key.split("(", 1)[0]
+            levels.setdefault(canonical, value)
+        return config
+    if not root.is_dir():
+        raise FileNotFoundError(f"configuration path does not exist: {root}")
+
+    manifest_path = root / "manifest.yaml"
+    manifest = {}
+    if manifest_path.exists():
+        with manifest_path.open() as handle:
+            manifest = yaml.safe_load(handle) or {}
+    selected_environment = environment or manifest.get("default_environment", "default")
+    selected_tools = manifest.get("default_tools", "default")
+    files = [root / "base.yaml",
+             root / "environments" / f"{selected_environment}.yaml",
+             root / "tools" / f"{selected_tools}.yaml"]
+    if sku:
+        files.append(root / "skus" / f"{sku}.yaml")
+    config = {}
+    for file_path in files:
+        if not file_path.exists():
+            if file_path.name == "base.yaml" or (sku and file_path.parent.name == "skus"):
+                raise FileNotFoundError(f"configuration file does not exist: {file_path}")
+            continue
+        with file_path.open() as handle:
+            fragment = yaml.safe_load(handle) or {}
+        _deep_merge(config, fragment)
+    config["_config_source"] = str(root)
+    config["_environment"] = selected_environment
+    if sku:
+        config["_sku"] = sku
+    return config
 
 
 # ---------------------------------------------------------------------------

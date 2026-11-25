@@ -1,0 +1,3 @@
+# Modular configuration manifest.
+default_environment: default
+default_tools: default

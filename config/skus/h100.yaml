@@ -1,0 +1,13 @@
+skus:
+  h100:
+    gpu_count: 8
+    gpu_model_pattern: H100
+    mem_mib_per_gpu: 81559
+    memory_tolerance_mib: 1024
+    numa_cpu_nodes_min: 1
+    driver_min: '535'
+    cuda_min: '12.2'
+    fabricmanager_required: true
+    imex_capable: false
+    nvlink: true
+    arch: x86_64

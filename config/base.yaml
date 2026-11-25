@@ -1,0 +1,609 @@
+level_settings:
+  basic:
+    burn_duration_s: 120
+    description: 'About 5 min: preflight + 2 min burn'
+  standard:
+    burn_duration_s: 1200
+    description: Preflight + 20 min burn + bandwidth + DCGM r2 + RDMA
+  extended:
+    burn_duration_s: 3600
+    description: 1h burn + DCGM r3 (configurable r4) + multi-host NCCL
+baseline:
+  tolerance_pct: 20
+  tolerance_pct_by_check:
+    gpu_burn: 10
+    nccl_allreduce: 20
+    nccl_alltoall: 20
+network:
+  expected_planes:
+    single_plane: 1
+    multiplanar: 4
+  mode: auto
+  imds_url: http://169.254.169.254/opc/v2/host
+  imds_timeout_s: 2
+  fallback_mode: single_plane
+  single_plane:
+    a10:
+      hca_names: []
+      expected_active_hcas: 0
+    a100:
+      hca_names: []
+      expected_active_hcas: 8
+    h100:
+      hca_names: []
+      expected_active_hcas: 8
+    h200:
+      hca_names: []
+      expected_active_hcas: 8
+    l40s:
+      hca_names: []
+      expected_active_hcas: 8
+    b200:
+      hca_names: []
+      expected_active_hcas: 8
+    b300:
+      hca_names: []
+      expected_active_hcas: 8
+    gb200:
+      hca_names: []
+      expected_active_hcas: 4
+    gb300:
+      hca_names: []
+      expected_active_hcas: 4
+  multiplanar:
+    vf_rails:
+    - rdma_vf_rail0
+    - rdma_vf_rail1
+    - rdma_vf_rail2
+    - rdma_vf_rail3
+    vrfs:
+    - vrf_r0
+    - vrf_r1
+    - vrf_r2
+    - vrf_r3
+    numa_map:
+      '0': 0
+      '1': 0
+      '2': 1
+      '3': 1
+rdma_perf:
+  timeout_s: 90
+  port: 18515
+  probe_timeout_s: 5
+  ready_attempts: 30
+  ready_interval_s: 0.2
+  bw_args:
+  - -F
+  - -q
+  - '2'
+  - --report_gbits
+  - -s
+  - '8388608'
+  - -D
+  - '5'
+  lat_args:
+  - -F
+  - -s
+  - '8'
+  - -n
+  - '10000'
+  read_args:
+  - -F
+  - -q
+  - '2'
+  - --report_gbits
+  - -s
+  - '8388608'
+  - -D
+  - '5'
+  send_args:
+  - -F
+  - -q
+  - '2'
+  - --report_gbits
+  - -s
+  - '8388608'
+  - -D
+  - '5'
+  gdr_args:
+  - -F
+  - -q
+  - '2'
+  - --report_gbits
+  - -s
+  - '8388608'
+  - -D
+  - '5'
+  - --use_cuda
+  single_plane:
+    ip_family: auto
+    extra_args: []
+    bw_min_gbps: null
+    lat_max_us: null
+  multiplanar:
+    ip_family: inet6
+    extra_args:
+    - -x
+    - '3'
+    - --ipv6
+    - --ipv6-addr
+    example_bw_gbps: 459
+    example_lat_us: 4.0
+    threshold_source: PDF example
+    bw_min_gbps: 321.3
+    lat_max_us: 6.0
+placement:
+  rack_max_nodes: 18
+  inventory: {}
+executor:
+  setup_timeout_s: 120
+  parallelism: 16
+  timeout_s: 15
+nccl:
+  timeout_s: 1800
+  args:
+  - -b
+  - 1G
+  - -e
+  - 16G
+  - -f
+  - '2'
+  - -g
+  - '1'
+  - -n
+  - '50'
+  largest_size_bytes: 17179869184
+  local_args:
+  - -b
+  - 1G
+  - -e
+  - 8G
+  - -f
+  - '2'
+  local_threshold_gbs: null
+  local_thresholds_gbs:
+    a10:
+      2: 14.0
+  local_alltoall_threshold_gbs: null
+  local_alltoall_thresholds_gbs:
+    a10:
+      2: 13.5
+  baseline_threshold_pct: 80
+  single_plane:
+    env: {}
+    mpi_args: []
+    thresholds:
+      allreduce: null
+      alltoall: null
+    example_reference_gbs:
+      allreduce: {}
+      alltoall: {}
+  multiplanar:
+    env:
+      NCCL_SOCKET_IFNAME: eth0
+      NCCL_IB_HCA: rdma_vf_rail0,rdma_vf_rail1,rdma_vf_rail2,rdma_vf_rail3
+      NCCL_NET_PLUGIN: spcx
+      NCCL_NET: IB
+      NCCL_MNNVL_ENABLE: '1'
+      NCCL_NVLS_ENABLE: '1'
+      NCCL_IB_GID_INDEX: '3'
+      NCCL_IB_TC: '96'
+      NCCL_IB_ADAPTIVE_ROUTING: '1'
+      UCX_NET_DEVICES: eth0
+    mpi_args:
+    - --mca
+    - pml
+    - ucx
+    - --mca
+    - coll
+    - ^hcoll
+    small_max_nodes: 32
+    small_cluster:
+      NCCL_TUNING_VARIANT: final_small_cta16_qps16
+      NCCL_MIN_CTAS: '16'
+      NCCL_IB_QPS_PER_CONNECTION: '16'
+    large_cluster:
+      NCCL_TUNING_VARIANT: final_large_cta32_qps1
+      NCCL_MIN_CTAS: '32'
+      NCCL_MAX_CTAS: '32'
+      NCCL_IB_QPS_PER_CONNECTION: '1'
+    thresholds:
+      allreduce: null
+      alltoall: null
+    example_reference_gbs:
+      allreduce: {}
+      alltoall: {}
+imex:
+  nodes_file: /etc/nvidia-imex/nodes_config.cfg
+  service: nvidia-imex
+cuda:
+  path: /usr/local/cuda
+gpu_burn:
+  backend: gpu-burn
+  build_if_missing: true
+  source_dir: tools/gpu-burn
+  repository: https://github.com/wilicc/gpu-burn.git
+  build_timeout_s: 600
+  timeout_margin_s: 60
+  tensor_core: true
+  double: false
+  memory_percentage: 90
+  gpus: []
+  compute_capability:
+    b300: 103
+    gb300: 103
+    a10: 86
+    a100: 80
+    h100: 90
+    h200: 90
+    l40s: 89
+    b200: 100
+    gb200: 100
+  perf_deviation_threshold_pct: 10
+  sample_interval_s: 1
+  sample_timeout_s: 10
+  nvml_lib_path: null
+  nvml_lib_aarch64: /usr/lib/aarch64-linux-gnu/libnvidia-ml.so.1
+babelstream:
+  build_if_missing: true
+  source_dir: tools/BabelStream
+  repository: https://github.com/UoB-HPC/BabelStream.git
+  build_timeout_s: 600
+  build_jobs: 4
+  timeout_s: 300
+  gpus: []
+  cuda_arch:
+    b300: sm_103
+    gb300: sm_103
+    a10: sm_86
+    a100: sm_80
+    h100: sm_90
+    h200: sm_90
+    l40s: sm_89
+    b200: sm_100
+    gb200: sm_100
+  thresholds:
+    b300:
+      copy_min_gbs: 900
+      mul_min_gbs: 900
+      add_min_gbs: 900
+      triad_min_gbs: 900
+      dot_min_gbs: 100
+    gb300:
+      copy_min_gbs: 900
+      mul_min_gbs: 900
+      add_min_gbs: 900
+      triad_min_gbs: 900
+      dot_min_gbs: 100
+    a10:
+      copy_min_gbs: 300
+      mul_min_gbs: 300
+      add_min_gbs: 300
+      triad_min_gbs: 300
+      dot_min_gbs: 50
+dcgmi:
+  diag_levels:
+    basic: 1
+    standard: 2
+    extended: 3
+    a10_basic: 1
+    a10_standard: 2
+    a10_extended: 3
+  timeout_s: 3600
+nvbandwidth:
+  build_if_missing: true
+  source_dir: tools/nvbandwidth
+  repository: https://github.com/NVIDIA/nvbandwidth.git
+  build_timeout_s: 600
+  build_jobs: 4
+  timeout_s: 600
+  cuda_arch:
+    b300: 103
+    gb300: 103
+    a10: 86
+  multinode: false
+  mpi_args: []
+  tests:
+    a10:
+      test_names:
+      - device_to_device_bidirectional_memcpy_read_ce
+      - host_to_device_memcpy_ce
+      - device_to_host_memcpy_ce
+      thresholds:
+        device_to_device_bidirectional_memcpy_read_ce: 20
+        host_to_device_memcpy_ce: 10
+        device_to_host_memcpy_ce: 10
+    gb300:
+      test_names:
+      - device_to_device_bidirectional_memcpy_read_ce
+      thresholds:
+        device_to_device_bidirectional_memcpy_read_ce: 9000
+    a100:
+      test_names:
+      - device_to_device_bidirectional_memcpy_read_ce
+      thresholds:
+        device_to_device_bidirectional_memcpy_read_ce: null
+    h100:
+      test_names:
+      - device_to_device_bidirectional_memcpy_read_ce
+      thresholds:
+        device_to_device_bidirectional_memcpy_read_ce: null
+    h200:
+      test_names:
+      - device_to_device_bidirectional_memcpy_read_ce
+      thresholds:
+        device_to_device_bidirectional_memcpy_read_ce: null
+    l40s:
+      test_names:
+      - device_to_device_bidirectional_memcpy_read_ce
+      thresholds:
+        device_to_device_bidirectional_memcpy_read_ce: null
+    b200:
+      test_names:
+      - device_to_device_bidirectional_memcpy_read_ce
+      thresholds:
+        device_to_device_bidirectional_memcpy_read_ce: null
+    gb200:
+      test_names:
+      - device_to_device_bidirectional_memcpy_read_ce
+      thresholds:
+        device_to_device_bidirectional_memcpy_read_ce: null
+    b300:
+      test_names:
+      - device_to_device_bidirectional_memcpy_read_ce
+      - device_to_device_bidirectional_memcpy_write_sm
+      - device_to_device_bidirectional_memcpy_read_sm
+      thresholds:
+        device_to_device_bidirectional_memcpy_read_ce: 750
+oca_version:
+  enabled: true
+  os_release_path: /etc/os-release
+  timeout_s: 30
+  min_version: 1.64.0
+nic_inventory:
+  enabled: false
+  timeout_s: 30
+  interfaces: []
+network_ping:
+  enabled: false
+  count: 5
+  wait_s: 2
+  max_loss_pct: 0
+  timeout_s: 30
+  sample_count: 0
+  seed: 42
+  paths: []
+tcp_bandwidth:
+  enabled: false
+  duration_s: 30
+  parallel_streams: 4
+  timeout_s: 90
+  paths: []
+lustre_client:
+  enabled: false
+  path: null
+  timeout_s: 60
+filesystem_perf:
+  enabled: false
+  timeout_s: 1800
+  jobs: []
+object_storage:
+  enabled: false
+  bucket: null
+  object: null
+  namespace: null
+  scratch_dir: null
+  extra_args: []
+  min_mib_s: null
+  timeout_s: 1800
+object_upload:
+  enabled: false
+  bucket: null
+  source_file: null
+  prefix: null
+  namespace: null
+  extra_args: []
+  min_mib_s: null
+  timeout_s: 1800
+storage:
+  enabled: false
+  path: null
+  benchmark_file: null
+  benchmark: false
+  timeout_s: 1800
+  thresholds:
+    read_bw_mib_s: null
+    write_bw_mib_s: null
+    rand_iops: null
+troubleshooting:
+  default:
+  - Inspect the saved raw command output; confirm tool paths, versions, permissions and timeouts.
+  network_mode:
+  - 'Check IMDS rdmaFabricData.planes: 4 is multiplanar; absent/1 is single-plane. Never infer from shape name.'
+  - Compare --network-mode/config override with every target host; fix a wrong plane count before workloads.
+  nvidia_smi:
+  - Check driver loading, GPU enumeration, ECC state and SKU counts; inspect nvidia-smi and kernel Xid errors.
+  gpu_topology:
+  - Inspect nvidia-smi topo -m for missing GPU or NIC rows/columns; confirm PCIe enumeration and RDMA/driver installation.
+  fabricmanager:
+  - Inspect systemctl status/journal for nvidia-fabricmanager and ensure its version matches the driver.
+  numa_topology:
+  - Inspect numactl --hardware; only nodes with CPUs and nonzero memory count. Ignore the GB300 zero-MB nodes.
+  rdma_iface: &id001
+  - 'Check rdma link: required devices must be ACTIVE and LINK_UP; unused DOWN/DISABLED entries are normal.'
+  - 'Multiplanar: verify vrf_r0..3 exist and each VF netdev is enslaved to the matching VRF.'
+  - 'Single-plane: check discovered devices and netdev mappings; configure counts/pins for the deployment, without assuming
+    VRF or IPv6.'
+  rdma_link: *id001
+  rdma_perf: &id002
+  - Check server/client raw output, the control port/firewall, device pairing, MTU/GID/address family and per-rail IP routes.
+  - 'Multiplanar: verify IPv6, GID index 3, VF/VRF binding and the configured NUMA mapping; compare all rails.'
+  - Recheck placement and traffic before changing example limits or replacing a known-good baseline.
+  rdma_bw: *id002
+  rdma_lat: *id002
+  rdma_read: *id002
+  rdma_send: *id002
+  gdr_perf:
+  - Check nvidia-peermem, CUDA-enabled perftest support and GPU memory selection; compare device-memory bandwidth with host-memory
+    RDMA.
+  ssh_connectivity:
+  - Verify BatchMode SSH, trusted known_hosts and keys from the controller and launcher host to every peer.
+  gpu_burn:
+  - Inspect numerical errors, Xid/ECC events, clocks, temperature, power caps and cooling; a throughput imbalance can indicate
+    throttling.
+  nvbandwidth:
+  - Check the requested test names, CUDA build architecture, peer access/NVLink state and aggregate SUM units; calibrate floors
+    per SKU.
+  babelstream:
+  - Check CUDA device selection, build architecture, memory clocks and MB/s-to-GB/s units; inspect each GPU, not just the
+    average.
+  storage:
+  - Set storage.path to a dedicated mounted test directory; inspect df/lfs getstripe output and use an existing benchmark_file
+    for read-only fio.
+  dcgmi:
+  - Inspect each DCGM test/entity result and warning; check supported diagnostic level, permissions, idle GPUs and DCGM/driver
+    compatibility.
+  placement:
+  - 'Unexpected GMF: keep jobs of up to 18 hosts inside one customerGpuMemoryFabric; reduce --node-count or correct inventory.'
+  - Across racks, prefer GMFs with matching customerLocalBlock; inspect IMDS or inventory when blocks differ.
+  imex:
+  - Check active nvidia-imex and nodes_config.cfg on every selected host; membership must stay within one GMF/rack, never
+    across racks.
+  - Use exact inventory hostnames/IPs and include additional same-rack members in placement.inventory.
+  nccl_allreduce: &id003
+  - Inspect NCCL/MPI output, all ranks/GPUs, HCA discovery, plugin/UCX availability and mode-specific environment settings.
+  - Check GMF/local-block placement and per-GMF IMEX; compare largest-size in-place and out-of-place busbw with the named
+    threshold source.
+  nccl_alltoall: *id003
+  baseline:
+  - Use the same SKU, network mode, scale, level and workload options; inspect regressions before recalibrating on known-good
+    hardware.
+levels:
+  basic: &id004
+  - network_mode
+  - nvidia_smi
+  - kernel_xid
+  - ecc_remap
+  - pcie_link
+  - nvlink
+  - clocks_throttle
+  - software_versions
+  - oca_version
+  - gpu_topology
+  - fabricmanager
+  - numa_topology
+  - numa_affinity
+  standard: &id005
+  - network_mode
+  - nvidia_smi
+  - kernel_xid
+  - ecc_remap
+  - pcie_link
+  - nvlink
+  - clocks_throttle
+  - software_versions
+  - oca_version
+  - gpu_topology
+  - fabricmanager
+  - numa_topology
+  - numa_affinity
+  - ssh_connectivity
+  - gpu_burn
+  - gpu_fryer
+  - nvbandwidth
+  - babelstream
+  - dcgmi
+  - rdma_iface
+  - gpudirect_rdma
+  - rdma_perf
+  - rdma_read
+  - rdma_send
+  - gdr_perf
+  extended: &id006
+  - network_mode
+  - nvidia_smi
+  - kernel_xid
+  - ecc_remap
+  - pcie_link
+  - nvlink
+  - clocks_throttle
+  - software_versions
+  - oca_version
+  - gpu_topology
+  - fabricmanager
+  - numa_topology
+  - numa_affinity
+  - ssh_connectivity
+  - placement
+  - imex
+  - gpu_burn
+  - nvbandwidth
+  - babelstream
+  - dcgmi
+  - nccl_local_allreduce
+  - nccl_local_alltoall
+  - rdma_iface
+  - gpudirect_rdma
+  - rdma_perf
+  - rdma_read
+  - rdma_send
+  - gdr_perf
+  - nccl_allreduce
+  - nccl_alltoall
+  a10_basic: *id004
+  a10_standard:
+  - network_mode
+  - nvidia_smi
+  - kernel_xid
+  - ecc_remap
+  - pcie_link
+  - clocks_throttle
+  - software_versions
+  - oca_version
+  - gpu_topology
+  - fabricmanager
+  - numa_topology
+  - numa_affinity
+  - ssh_connectivity
+  - nvbandwidth
+  - babelstream
+  - dcgmi
+  a10_extended:
+  - network_mode
+  - nvidia_smi
+  - kernel_xid
+  - ecc_remap
+  - pcie_link
+  - nvlink
+  - clocks_throttle
+  - software_versions
+  - oca_version
+  - gpu_topology
+  - fabricmanager
+  - numa_topology
+  - numa_affinity
+  - gpu_burn
+  - gpu_fryer
+  - nvbandwidth
+  - babelstream
+  - dcgmi
+  - nccl_local_allreduce
+  - nccl_local_alltoall
+  a100_basic: *id004
+  a100_standard: *id005
+  a100_extended: *id006
+  h100_basic: *id004
+  h100_standard: *id005
+  h100_extended: *id006
+  h200_basic: *id004
+  h200_standard: *id005
+  h200_extended: *id006
+  l40s_basic: *id004
+  l40s_standard: *id005
+  l40s_extended: *id006
+  b200_basic: *id004
+  b200_standard: *id005
+  b200_extended: *id006
+  gb200_basic: *id004
+  gb200_standard: *id005
+  gb200_extended: *id006

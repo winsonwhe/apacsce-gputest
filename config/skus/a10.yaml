@@ -1,0 +1,26 @@
+skus:
+  a10:
+    disabled_checks:
+    - rdma_iface
+    - rdma_link
+    - gpudirect_rdma
+    - rdma_perf
+    - rdma_bw
+    - rdma_lat
+    - rdma_read
+    - rdma_send
+    - gdr_perf
+    - nccl_allreduce
+    - nccl_alltoall
+    gpu_count: 4
+    memory_tolerance_mib: 512
+    numa_cpu_nodes_min: 1
+    gpu_count_min: 1
+    gpu_model_pattern: A10
+    mem_mib_per_gpu: 23028
+    driver_min: '525'
+    cuda_min: '11.8'
+    fabricmanager_required: false
+    imex_capable: false
+    nvlink: false
+    arch: x86_64

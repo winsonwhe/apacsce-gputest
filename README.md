@@ -7,7 +7,8 @@ Validate NVIDIA GPU hosts with preflight, stress, bandwidth, DCGM, RDMA and NCCL
 ## Project architecture
 
 ```text
-config.yaml       # SKU profiles, levels, thresholds and tool paths
+config/            # Modular base, SKU, environment and tool configurations
+config.yaml       # Legacy single-file configuration (still supported)
 gputest/          # CLI, runner, checks, parsers and reporting
 tests/            # CPU-only pytest coverage
 fixtures/         # Mock command output
@@ -16,6 +17,8 @@ results/          # Reports and raw command output
 ```
 
 The CLI loads a level, runs registered checks through the shared command runner, and writes `PASS`, `WARN`, `FAIL` or `SKIP` results with raw output.
+
+The default configuration is modular. `config/base.yaml` contains shared settings, `config/skus/<sku>.yaml` contains one SKU, `config/environments/<env>.yaml` contains environment overrides, and `config/tools/<toolset>.yaml` contains executable paths. A run loads only the selected SKU and environment; pass `--environment <env>` to select an overlay. The legacy `config.yaml` remains supported with `--config config.yaml`.
 
 ## Install
 
@@ -53,9 +56,9 @@ Use `--tests check1,check2` to select checks explicitly. Use `--network-mode sin
 
 | Level | Purpose |
 |---|---|
-| `basic` | Host-local health checks and a short GPU burn; no RDMA or multi-host requirement. |
-| `standard` | Basic plus bandwidth, BabelStream, DCGM and RDMA checks on profiles that support RDMA. |
-| `extended` | Standard plus local NCCL, placement/IMEX where supported, and multi-host NCCL. |
+| `basic` | All tests from the GPU Handover Doc. |
+| `standard` | Basic plus cross-node, cross-rack, IP ping, mis-cabling, flapping, deep GPU tests, and related extended validation. |
+| `extended` | Custom Image Test. |
 
 A10 uses dedicated profiles: `a10_basic`, `a10_standard`, and `a10_extended`. They omit RDMA and multi-host NCCL because the supported A10 deployment has no RDMA fabric. Storage and object-store checks are opt-in because they require site-specific paths or credentials. See [level details](doc/levels.md).
 

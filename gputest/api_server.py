@@ -22,7 +22,7 @@ from urllib.parse import urlsplit
 import yaml
 
 import gputest.checks  # noqa: F401
-from gputest.core import get_registry
+from gputest.core import get_registry, load_config
 
 ROOT = Path(__file__).resolve().parent.parent
 UI_ROOT = ROOT / 'ui'
@@ -77,8 +77,10 @@ class Controller:
         os.replace(temp, path)
 
     def catalog(self):
-        config = yaml.safe_load((ROOT / 'config.yaml').read_text())
-        return {'levels': config['levels'], 'skus': list(config['skus']),
+        # The catalog only needs names; SKU-specific details are loaded when a job starts.
+        sku_files = sorted((ROOT / 'config' / 'skus').glob('*.yaml'))
+        config = load_config(ROOT / 'config', sku=sku_files[0].stem) if sku_files else load_config(ROOT / 'config')
+        return {'levels': config['levels'], 'skus': [p.stem for p in sku_files],
                 'checks': [{k: c[k] for k in ('name', 'category', 'skus', 'multi_host')}
                            for c in get_registry()]}
 
@@ -143,7 +145,7 @@ class Controller:
         ssh_wrapper = directory / 'ssh'
         ssh_wrapper.write_text('#!/bin/sh\nexec ssh -F ' + shlex.quote(str(ssh_config)) + ' "$@"\n')
         ssh_wrapper.chmod(0o700)
-        config = yaml.safe_load((ROOT / 'config.yaml').read_text())
+        config = load_config(ROOT / 'config', sku=sku)
         config['tools']['ssh'] = str(ssh_wrapper)
         config_path = directory / 'config.yaml'
         config_path.write_text(yaml.safe_dump(config))

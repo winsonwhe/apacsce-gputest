@@ -370,8 +370,10 @@ def build_parser() -> argparse.ArgumentParser:
                        default=None,
                        help="Override config: auto detects via IMDS and uses fallback_mode on failure; "
                             "single_plane or multiplanar selects that mode explicitly.")
-    run_p.add_argument("--config", default="config.yaml",
-                       help="Path to config.yaml (default: config.yaml).")
+    run_p.add_argument("--environment",
+                       help="Configuration environment overlay (default: manifest setting).")
+    run_p.add_argument("--config", default="config",
+                       help="Path to a config directory or legacy YAML file (default: config/).")
 
     # report
     rep_p = sub.add_parser("report", help="Re-render a saved result directory.")
@@ -388,8 +390,8 @@ def build_parser() -> argparse.ArgumentParser:
     ssh_p.add_argument("--private-key", metavar="PATH",
                        help="Private key to install on every node (default: ~/.ssh/id_ed25519); "
                             "its public key must already allow bootstrap SSH.")
-    ssh_p.add_argument("--config", default="config.yaml",
-                       help="Path to config.yaml (default: config.yaml).")
+    ssh_p.add_argument("--config", default="config",
+                       help="Path to a config directory or legacy YAML file (default: config/).")
 
     return parser
 
@@ -398,8 +400,9 @@ def main() -> None:
     parser = build_parser()
     args = parser.parse_args()
 
-    config_path = getattr(args, "config", "config.yaml")
-    config = load_config(config_path)
+    config_path = getattr(args, "config", "config")
+    config = load_config(config_path, sku=getattr(args, "sku", None),
+                         environment=getattr(args, "environment", None))
 
     # CLI override for network mode
     if getattr(args, "network_mode", None):

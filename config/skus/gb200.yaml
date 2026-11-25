@@ -1,0 +1,13 @@
+skus:
+  gb200:
+    gpu_count: 4
+    gpu_model_pattern: GB200
+    mem_mib_per_gpu: 180224
+    memory_tolerance_mib: 2048
+    numa_cpu_nodes_min: 2
+    driver_min: '570'
+    cuda_min: '12.8'
+    fabricmanager_required: true
+    imex_capable: true
+    nvlink: true
+    arch: aarch64

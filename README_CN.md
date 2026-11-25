@@ -65,8 +65,10 @@ python3 -m gputest.cli run --sku gb300 --level extended --nodes host1,host2
 
 | 级别 | 用途 |
 |---|---|
-| `basic` | 主机本地健康检查和短时 GPU 压力测试；不要求 RDMA 或多机。 |
-| `standard` | 在 basic 基础上增加带宽、BabelStream、DCGM，以及支持 RDMA 的机型上的 RDMA 检查。 |
-| `extended` | 在 standard 基础上增加本机 NCCL、适用时的 placement/IMEX，以及多机 NCCL。 |
+| `basic` | GPU Handover Doc 中的全部测试。 |
+| `standard` | 在 basic 基础上增加跨节点、跨机架、IP ping、错缆（mis-cabling）、链路抖动（flapping）、深层 GPU 测试及相关扩展验证。 |
+| `extended` | Custom Image Test（自定义镜像测试）。 |
 
 A10 使用专用的 `a10_basic`、`a10_standard` 和 `a10_extended` 配置，默认不包含 RDMA 和多机 NCCL。存储和对象存储检查需要站点路径或凭据，因此默认按需选择。详见[级别说明](doc/levels_CN.md)。
+
+默认配置采用模块化目录：`config/base.yaml` 保存公共配置，`config/skus/<sku>.yaml` 保存单个 SKU，`config/environments/<env>.yaml` 保存环境覆盖，`config/tools/<toolset>.yaml` 保存工具路径。一次运行只加载用户选择的 SKU 和环境；可使用 `--environment <env>` 选择环境。旧版 `config.yaml` 仍可通过 `--config config.yaml` 使用。

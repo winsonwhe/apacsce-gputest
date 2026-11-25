@@ -1,0 +1,13 @@
+skus:
+  a100:
+    gpu_count: 8
+    gpu_model_pattern: A100
+    mem_mib_per_gpu: 81251
+    memory_tolerance_mib: 1024
+    numa_cpu_nodes_min: 1
+    driver_min: '525'
+    cuda_min: '11.8'
+    fabricmanager_required: true
+    imex_capable: false
+    nvlink: true
+    arch: x86_64

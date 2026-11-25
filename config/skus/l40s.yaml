@@ -1,0 +1,13 @@
+skus:
+  l40s:
+    gpu_count: 8
+    gpu_model_pattern: L40S
+    mem_mib_per_gpu: 46068
+    memory_tolerance_mib: 1024
+    numa_cpu_nodes_min: 1
+    driver_min: '535'
+    cuda_min: '12.2'
+    fabricmanager_required: false
+    imex_capable: false
+    nvlink: false
+    arch: x86_64
