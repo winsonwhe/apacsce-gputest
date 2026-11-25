@@ -220,7 +220,17 @@ def cmd_setup_ssh(args, config: dict) -> None:
     """Install one shared SSH identity and peer trust on every selected node."""
     nodes, users = _node_selection(args, required=True)
     dry_run = args.dry_run
-    tools = config['tools']
+    # SSH bootstrap is also used from jump hosts with older/minimal config
+    # directories. These are standard system tools, so preserve configured
+    # paths when present and fall back to their command names otherwise.
+    tools = {
+        'ssh': 'ssh',
+        'scp': 'scp',
+        'ssh_keygen': 'ssh-keygen',
+        'ssh_keyscan': 'ssh-keyscan',
+        **config.get('tools', {}),
+    }
+    setup_timeout = config.get('executor', {}).get('setup_timeout_s', 30)
     ssh_dir = Path.home() / '.ssh'
     key = Path(args.private_key).expanduser() if args.private_key else ssh_dir / 'id_ed25519'
     public_key = Path(str(key) + '.pub')
@@ -229,7 +239,7 @@ def cmd_setup_ssh(args, config: dict) -> None:
     failed = []
 
     def execute(cmd):
-        return run(cmd, dry_run=dry_run, timeout=config['executor']['setup_timeout_s'],
+        return run(cmd, dry_run=dry_run, timeout=setup_timeout,
                    results_dir=None if dry_run else Path('results/ssh-setup'))
 
     if not key.exists() and args.private_key and not dry_run:

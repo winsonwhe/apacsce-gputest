@@ -47,3 +47,13 @@ def test_setup_ssh_accepts_shared_private_key(tmp_path, monkeypatch, capsys):
     output = capsys.readouterr().out
     assert f'-i {key}' in output
     assert 'scp' in output
+
+
+def test_setup_ssh_accepts_config_without_tools_fragment(tmp_path, monkeypatch, capsys):
+    from gputest import cli
+    monkeypatch.setattr(cli.Path, 'home', classmethod(lambda cls: tmp_path))
+    args = build_parser().parse_args(['setup-ssh', '--nodes', 'host1', '--dry-run'])
+    cli.cmd_setup_ssh(args, {'executor': {'setup_timeout_s': 10}})
+    output = capsys.readouterr().out
+    assert 'ssh-keygen' in output
+    assert 'ssh-keyscan' in output
